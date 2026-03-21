@@ -1,7 +1,7 @@
 [project]
 name = "super_slurpy"
 version = "0.1.0-alpha.1"
-description = "Super SLURPy: Python version of Speech and Language Ultrasound Research Package."
+description = "Super SLURPy: Python version of Speech and Language Ultrasound Research Package"
 readme = "README.md"
 authors = [
     { name = "Pertti Palo", email = "giuthas@gmail.com" }
