@@ -38,7 +38,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   been integration tested.
 
 
-## [0.1.0-alpha.0] - 2026-03-22
+## [0.1.0-alpha.1] - 2026-03-22
 
 ### Highlights
 
