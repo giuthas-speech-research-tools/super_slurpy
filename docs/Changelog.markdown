@@ -37,6 +37,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   been integration tested.
 
 
+## [0.2.0] - 2026-03-24
+
+### Highlights
+
+- Added C code from original SLURP.
+
+### Added
+
+- Added C code from original SLURP.
+
+
 ## [0.1.1] - 2026-03-22
 
 ### Highlights
