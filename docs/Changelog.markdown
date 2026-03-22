@@ -27,7 +27,6 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- v0.1.0 will add release automation for mainline releases.
 - v0.2.0 will import the C code from original SLURP, but won't link it yet.
 - v0.3.0 will add a very simple seed snake.
 - v0.4.0 will link C code into Python and run with the simple seed snake. 
@@ -36,6 +35,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   seed snake on.
 - V1.0 will be released after documentation is updated and functionality has
   been integration tested.
+
+
+## [0.1.0] - 2026-03-22
+
+### Highlights
+
+- Initial release to reserve package name on pypi.
+
+### Added
+
+- Release automation for main releases to pypi.
 
 
 ## [0.1.0-alpha.1] - 2026-03-22
