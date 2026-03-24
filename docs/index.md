@@ -5,6 +5,17 @@ Package [SLURP](https://github.com/cathylaporte/SLURP). It provides a Python
 API and a Python program. Latter is simply called `slurpy` and launches the
 GUI.
 
+## Latest version and release history
+
+See [Changelog](Changelog.markdown).
+
+## Contributors and contributing
+
+We welcome contributions. Please get in touch before putting too much work in
+so that we can coordinate efforts.
+
+For people involved in development see [Contributors](Contributors.markdown).
+
 ## A note on the name(s)
 
 The 'super' in the package/project name is there only to avoid a conflict with
