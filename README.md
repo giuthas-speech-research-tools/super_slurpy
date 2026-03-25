@@ -15,15 +15,14 @@ This project is a Python port of [SLURP](https://github.com/cathylaporte/SLURP).
 
 ## Documentation
 
-[Documentation](https://giuthas-speech-research-tools.github.io/super_slurpy/)
+- General
+  [Documentation](https://giuthas-speech-research-tools.github.io/super_slurpy/)
+- For current version and development plans see
+[Changelog](https://giuthas-speech-research-tools.github.io/super_slurpy/Changelog)
+- [List of
+  contributors](https://giuthas-speech-research-tools.github.io/super_slurpy/Contributors)
 
-## Current version and development plans
-
-See
-[Changelog](https://giuthas-speech-research-tools.github.io/super_slurpy/Changelog),
-for what's new in the current version and what's coming up.
-
-## Versioning
+### Versioning
 
 We use [SemVer](http://semver.org/) for versioning under the rules set out by
 [PEP 440](https://www.python.org/dev/peps/pep-0440/) with the additional
@@ -33,11 +32,6 @@ writing) have not been tested in any way.
 For the versions available, see the [tags on this
 repository](https://github.com/giuthas-speech-research-tools/super_slurpy/).
 
-# Contributors
+### Copyright and License
 
-List of
-[contributors](https://giuthas-speech-research-tools.github.io/super_slurpy/Contributors)
-
-## Copyright and License
-
-BSD-2-Clause license like original SLURP
+BSD-2-Clause license like original SLURP.
