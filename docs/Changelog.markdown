@@ -27,7 +27,6 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- v0.2.0 will import the C code from original SLURP, but won't link it yet.
 - v0.3.0 will add a very simple seed snake.
 - v0.4.0 will link C code into Python and run with the simple seed snake. 
 - v0.5.0 will make the seed snake editable.
@@ -37,7 +36,18 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   been integration tested.
 
 
-## [0.2.0] - 2026-03-24
+## [0.2.0] - 2026-03-30
+
+### Highlights
+
+- Linked C code into Python, no actual functionality yet.
+
+### Added
+
+- C bindings in cffi into Python.
+
+
+## [0.2.0-alpha.0] - 2026-03-25
 
 ### Highlights
 
