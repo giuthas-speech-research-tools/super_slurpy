@@ -1,5 +1,5 @@
 [project]
-name = "super_slurpy"
+name = "super-slurpy"
 version = "0.2.0"
 description = "Super SLURPy: Python version of Speech and Language Ultrasound Research Package"
 readme = "README.md"
@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 slurpy = "super_slurpy:main"
+super-slurpy = "super_slurpy:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -8,9 +8,9 @@ This project is a Python port of [SLURP](https://github.com/cathylaporte/SLURP).
   - MacOS/Linux run `curl -LsSf https://astral.sh/uv/install.sh | sh`
   - Windows run `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
   - See [uv](https://docs.astral.sh/uv/#getting-started) for more details.
-- On the commandline run `uv tool install super_slurpy`
+- On the commandline run `uv tool install super-slurpy`
 - Run `slurpy --help` for instructions.
-- The package is called `super_slurpy` but the program itself is called just
+- The package is called `super-slurpy` but the program itself is called just
   `slurpy` for convenience.
 
 ## Documentation
