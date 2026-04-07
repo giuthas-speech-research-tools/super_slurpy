@@ -1,6 +1,5 @@
-/* EdgeTrak snake mex-gateway */
+/* SLURP snake Python-gateway */
 
-#include <mex.h>
 #include <stdio.h>
 #include "snake.h"
 
