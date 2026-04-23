@@ -27,9 +27,20 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- v0.3.0 will make the GUI functional with an editable seed snake.
 - v1.0 will be released after documentation is updated and functionality has
   been integration tested.
+
+
+## [0.3.0] - 2026-04-23
+
+### Highlights
+
+- The GUI is now functional.
+- There is an editable seed snake.
+
+### Added
+
+- A lot of copied GUI functionality based on the Matlab implementation.
 
 
 ## [0.2.0] - 2026-04-23
