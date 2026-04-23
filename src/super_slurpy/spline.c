@@ -109,7 +109,7 @@ int    nm1, ib, i;
 double t;
 int    ascend;
 
-printf(" allocation");
+// printf(" allocation");
 nm1    = n - 1;
 *iflag = 0;
 
@@ -127,7 +127,7 @@ if (!ascend)
    goto LeaveSpline;
    }
 
-printf(" debut quadratic");
+// printf(" debut quadratic");
 
 if (n >= 3)
    {    /* ---- At least quadratic ---- */
@@ -149,7 +149,7 @@ if (n >= 3)
    /* ---- Default End conditions
            Third derivatives at x[0] and x[n-1] obtained
            from divided differences  */
-   printf("default end conditions");
+   // printf("default end conditions");
    b[0]   = -d[0];
    b[nm1] = -d[n-2];
    c[0]   = 0.0;
@@ -161,7 +161,7 @@ if (n >= 3)
       c[0]   = c[0] * d[0] * d[0] / (x[3] - x[0]);
       c[nm1] = -c[nm1] * d[n-2] * d[n-2] / (x[nm1] - x[n-4]);
       }
-    printf("default end conditions fin");
+   //  printf("default end conditions fin");
    /* Alternative end conditions -- known slopes */
    if (end1 == 1)
       {
@@ -175,28 +175,28 @@ if (n >= 3)
       }
 
    /* Forward elimination */
-    printf("Forward elimination");
+   //  printf("Forward elimination");
    for (i = 1; i < n; ++i)
      {
      t    = d[i-1] / b[i-1];
      b[i] = b[i] - t * d[i-1];
      c[i] = c[i] - t * c[i-1];
      }
-    printf("Forward elimination end");
+   //  printf("Forward elimination end");
    /* Back substitution */
-   printf(" Back substitution");
+   // printf(" Back substitution");
    c[nm1] = c[nm1] / b[nm1];
    for (ib = 0; ib < nm1; ++ib)
       {
       i    = n - ib - 2;
       c[i] = (c[i] - d[i] * c[i+1]) / b[i];
       }
-    printf(" Back substitution end");
+   //  printf(" Back substitution end");
     
    /* c[i] is now the sigma[i] of the text */
 
    /* Compute the polynomial coefficients */
-    printf("Compute the polynomial coefficients");
+   //  printf("Compute the polynomial coefficients");
    b[nm1] = (y[nm1] - y[n-2]) / d[n-2] + d[n-2] * (c[n-2] + 2.0 * c[nm1]);
    for (i = 0; i < nm1; ++i)
       {
@@ -219,7 +219,7 @@ else  /* if n >= 3 */
    c[1] = 0.0;
    d[1] = 0.0;
    }
-printf("Compute the polynomial coefficients end");
+// printf("Compute the polynomial coefficients end");
 LeaveSpline:
 return 0;
 }  /* end of spline() */
