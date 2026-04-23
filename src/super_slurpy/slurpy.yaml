@@ -1,0 +1,13 @@
+# Configuration for slurpy GUI and algorithms.
+
+gui:
+  # Specify either an absolute frame number (int)
+  # or a proportional position (float 0.0 to 1.0)
+  default_frame: null
+  proportional_frame: 0.5
+
+# Algorithm defaults
+snake:
+  alpha: 0.1
+  lambda1: 0.5
+  band_penalty: 10.0
