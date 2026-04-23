@@ -16,8 +16,8 @@ dependencies = [
 ]
 
 [project.scripts]
-slurpy = "super_slurpy:run_cli"
-super-slurpy = "super_slurpy:run_cli"
+slurpy = "super_slurpy.cli:run_cli"
+super-slurpy = "super_slurpy.cli:run_cli"
 
 [project.optional-dependencies]
 gui = [
@@ -27,22 +27,32 @@ gui = [
     "scipy>=1.17.1",
 ]
 
+# [build-system]
+# requires = ["hatchling"]
+# build-backend = "hatchling.build"
+
+# [tool.hatch.build.targets.wheel]
+# # Tell Hatchling to find the package inside the src directory
+# packages = ["src/super_slurpy"]
+# include = [
+#     "src/super_slurpy/*.yaml",
+# ]
+
+# [tool.hatch.build.targets.sdist]
+# packages = ["src/super_slurpy"]
+# include = [
+#     "src/super_slurpy/*.yaml",
+# ]
+
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-include = [
-    "src/super_slurpy/*.yaml",
-]
-
-[tool.hatch.build.targets.sdist]
-include = [
-    "src/super_slurpy/*.yaml",
-]
+requires = ["setuptools>=61.0", "Cython>=3.0", "numpy>=2.4.4"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"super_slurpy" = ["*.yaml"]
 
 [tool.setuptools]
 script-files = ["setup.py"]

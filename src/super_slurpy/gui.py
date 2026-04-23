@@ -43,7 +43,7 @@ class SnakeGUI(QMainWindow):
         super().__init__()
 
         # Window configuration
-        self.setWindowTitle(title="Slurpy Contour Editor")
+        self.setWindowTitle("Slurpy Contour Editor")
         self.config: SuperSlurpyConfig = load_config()
 
         # State management - explicitly typed per guidelines
@@ -64,8 +64,8 @@ class SnakeGUI(QMainWindow):
         None
         """
         main_widget = QWidget()
-        self.setCentralWidget(widget=main_widget)
-        layout = QVBoxLayout(widget=main_widget)
+        self.setCentralWidget(main_widget)
+        layout = QVBoxLayout(main_widget)
 
         # Toolbar setup
         toolbar = QHBoxLayout()
@@ -73,14 +73,14 @@ class SnakeGUI(QMainWindow):
         btn_open.clicked.connect(slot=self.open_video)
 
         self.points_input = QSpinBox()
-        self.points_input.setRange(minimum=3, maximum=100)
-        self.points_input.setValue(val=20)
+        self.points_input.setRange(3, 100)
+        self.points_input.setValue(20)
 
         # Assemble toolbar layout
-        toolbar.addWidget(widget=btn_open)
-        toolbar.addWidget(widget=QLabel(text="Spline Points:"))
-        toolbar.addWidget(widget=self.points_input)
-        layout.addLayout(layout=toolbar)
+        toolbar.addWidget(btn_open)
+        toolbar.addWidget(QLabel(text="Spline Points:"))
+        toolbar.addWidget(self.points_input)
+        layout.addLayout(toolbar)
 
         # Matplotlib Canvas Integration
         self.fig = Figure(figsize=(8, 6))
@@ -91,7 +91,7 @@ class SnakeGUI(QMainWindow):
             s="button_press_event",
             func=self.on_click
         )
-        layout.addWidget(widget=self.canvas)
+        layout.addWidget(self.canvas)
 
     def open_video(self) -> None:
         """

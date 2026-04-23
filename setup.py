@@ -1,24 +1,36 @@
-from setuptools import setup, Extension
-from Cython.Build import cythonize
+"""
+Setup script for compiling Cython extensions in Super-Slurpy.
+"""
+
 import numpy as np
-import os
+from Cython.Build import cythonize
+from setuptools import Extension, setup
 
-# Path to our package source
-pkg_path = os.path.join("src", "snake_lib")
-
+# Define the Cython extensions.
 extensions = [
     Extension(
-        name="snake_lib.core",  # Note the dot notation for submodules
+        name="super_slurpy.core",
         sources=[
-            os.path.join(pkg_path, "core.pyx"),
-            os.path.join(pkg_path, "snake.c")
+            # 1. The Cython wrapper
+            "src/super_slurpy/core.pyx",
+
+            # 2. The core C algorithm files (from the old Makefile)
+            "src/super_slurpy/snake.c",
+            "src/super_slurpy/image.c",
+            "src/super_slurpy/pnpoly.c",
+            "src/super_slurpy/spline.c"
         ],
-        include_dirs=[np.get_include(), pkg_path],
+        include_dirs=[
+            np.get_include(),
+            "src/super_slurpy"  # To find snake.h, image.h, etc.
+        ],
     )
 ]
 
+# Run the compilation
 setup(
     ext_modules=cythonize(
-        extensions,
-        compiler_directives={'language_level': "3"})
+        module_list=extensions,
+        compiler_directives={"language_level": "3"},
+    )
 )

@@ -4,12 +4,11 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-
+#include <stdbool.h>
 
 
 /*#include <sys/time.h>*/
 
-#include <mex.h>
 #include "image.h"
 #include "snake.h"
 #include "pnpoly.h"

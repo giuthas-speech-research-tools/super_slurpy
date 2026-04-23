@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include "image.h"
-#include <mex.h>
 #ifndef M_PI
 #  define M_PI 3.141592653589793238
 #endif
