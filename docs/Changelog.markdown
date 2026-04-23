@@ -30,7 +30,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - v1.0 will be released after documentation is updated and functionality has
   been integration tested.
 
-<!-- 
+
 ## [0.3.0] - 2026-04-23
 
 ### Highlights
@@ -41,7 +41,6 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Added
 
 - A lot of copied GUI functionality based on the Matlab implementation.
- -->
 
 
 ## [0.2.1] - 2026-04-23
