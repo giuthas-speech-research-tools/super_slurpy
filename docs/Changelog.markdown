@@ -27,16 +27,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- v0.3.0 will add a very simple seed snake.
-- v0.4.0 will link C code into Python and run with the simple seed snake. 
-- v0.5.0 will make the seed snake editable.
-- v0.6.0 will add a simple heuristic config for selecting the frame to base the
-  seed snake on.
-- V1.0 will be released after documentation is updated and functionality has
+- v0.3.0 will make the GUI functional with an editable seed snake.
+- v1.0 will be released after documentation is updated and functionality has
   been integration tested.
 
 
-## [0.2.0] - 2026-03-30
+## [0.2.0] - 2026-04-23
 
 ### Highlights
 
@@ -44,7 +40,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- C bindings in cffi into Python.
+- C bindings in Cython.
+- Untested yaml config for selecting the seed frame and settings for the snake
+  algorithm.
+
+### Removed
+
+- A lot of old code that is no longer in use.
+  - If somebody wants to for some reason combine this project with the original
+    Matlab project, the matlab code will need to be brought back.
 
 
 ## [0.2.0-alpha.0] - 2026-03-25

@@ -2,6 +2,13 @@
 local/
 local
 
+# Cython auto-generated C files
+src/super_slurpy/core.c
+
+# Compiled C extensions
+*.so
+*.pyd
+
 # Python-generated files
 __pycache__/
 *.py[oc]
