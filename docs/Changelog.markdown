@@ -43,6 +43,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - C bindings in Cython.
 - Untested yaml config for selecting the seed frame and settings for the snake
   algorithm.
+- `clean.sh` to clean generated files before rebuilding the C-bindings.
 
 ### Removed
 
