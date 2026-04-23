@@ -51,20 +51,18 @@ class SnakeGUI(QMainWindow):
         The primary video stream from the container.
     frame : np.ndarray | None
         The currently displayed video frame.
+    current_frame_idx : int
+        The index of the frame currently being viewed.
     anchors : list[list[float]]
         A list of user-defined anchor points [x, y].
+    anchors_history : dict[int, list[list[float]]]
+        A mapping of frame indices to their saved anchor points.
     contour : np.ndarray | None
         Interpolated spline points calculated from anchors.
     _drag_idx : int | None
         Index of the anchor currently being dragged, or None.
-
-    Examples
-    --------
-    >>> from PyQt6.QtWidgets import QApplication
-    >>> import sys
-    >>> app = QApplication(sys.argv)
-    >>> window = SnakeGUI()
-    >>> window.show()
+    _is_tracking : bool
+        Flag indicating if the automated tracking loop is active.
     """
 
     def __init__(self) -> None:
@@ -74,16 +72,21 @@ class SnakeGUI(QMainWindow):
         self.setWindowTitle("Slurpy Contour Editor")
         self.config: dict[str, Any] = load_config()
 
-        # State management for video and points
+        # State management for video
         self.video_path: str | None = None
         self.container: Any = None
         self.video_stream: Any = None
         self.frame: np.ndarray | None = None
+        self.current_frame_idx: int = 0
+
+        # State management for contour points
         self.anchors: list[list[float]] = []
+        self.anchors_history: dict[int, list[list[float]]] = {}
         self.contour: np.ndarray | None = None
 
-        # Tracks which point is being dragged by the user
+        # Internal control flags
         self._drag_idx: int | None = None
+        self._is_tracking: bool = False
 
         self._init_ui()
 
@@ -100,49 +103,49 @@ class SnakeGUI(QMainWindow):
 
         # 1. Toolbar Setup
         toolbar = QHBoxLayout()
-        btn_open = QPushButton("Open Video", parent=main_widget)
-        btn_open.clicked.connect(self.open_video)
+        btn_open = QPushButton(text="Open Video", parent=main_widget)
+        btn_open.clicked.connect(slot=self.open_video)
 
-        self.btn_track = QPushButton("Track Video", parent=main_widget)
-        self.btn_track.clicked.connect(self.run_tracking)
+        self.btn_track = QPushButton(text="Track Video", parent=main_widget)
+        self.btn_track.clicked.connect(slot=self.run_tracking)
         self.btn_track.setEnabled(False)
 
         self.points_input = QSpinBox(parent=main_widget)
         self.points_input.setRange(3, 500)
         self.points_input.setValue(DEFAULT_SPLINE_POINTS)
-        self.points_input.valueChanged.connect(self._update_spline)
+        self.points_input.valueChanged.connect(slot=self._update_spline)
 
         toolbar.addWidget(btn_open)
         toolbar.addWidget(self.btn_track)
-        toolbar.addWidget(QLabel("Spline Points:"))
+        toolbar.addWidget(QLabel(text="Spline Points:"))
         toolbar.addWidget(self.points_input)
         layout.addLayout(toolbar)
 
         # 2. Frame Navigation Slider
-        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider = QSlider(orientation=Qt.Orientation.Horizontal)
         self.slider.setEnabled(False)
-        self.slider.valueChanged.connect(self.on_slider_change)
+        self.slider.valueChanged.connect(slot=self.on_slider_change)
         layout.addWidget(self.slider)
 
         # 3. Matplotlib Canvas Integration
         self.fig = Figure(figsize=(8, 6))
-        self.canvas = FigureCanvasQTAgg(self.fig)
+        self.canvas = FigureCanvasQTAgg(figure=self.fig)
         self.ax = self.fig.add_subplot(111)
         self.ax.set_axis_off()
         layout.addWidget(self.canvas)
 
         # 4. Connect Matplotlib interactive events
         self.canvas.mpl_connect(
-            "button_press_event",
-            self.on_mouse_press
+            s="button_press_event",
+            func=self.on_mouse_press
         )
         self.canvas.mpl_connect(
-            "motion_notify_event",
-            self.on_mouse_motion
+            s="motion_notify_event",
+            func=self.on_mouse_motion
         )
         self.canvas.mpl_connect(
-            "button_release_event",
-            self.on_mouse_release
+            s="button_release_event",
+            func=self.on_mouse_release
         )
 
     def open_video(self) -> None:
@@ -161,19 +164,17 @@ class SnakeGUI(QMainWindow):
         self.video_path = file_path
 
         # Open video and grab the first video stream via PyAV
-        self.container = av.open(file_path)
+        self.container = av.open(file=file_path)
         self.video_stream = self.container.streams.video[0]
 
         # Configure slider bounds based on video length
         total_frames: int = self.video_stream.frames
         if total_frames == 0:
-            # Fallback if the container lacks duration metadata
             total_frames = 1000
 
         self.slider.setRange(0, total_frames - 1)
         self.slider.setValue(0)
 
-        # Enable relevant UI elements
         self.slider.setEnabled(True)
         self.btn_track.setEnabled(True)
 
@@ -191,6 +192,16 @@ class SnakeGUI(QMainWindow):
         if self.container is None or self.video_stream is None:
             return
 
+        self.current_frame_idx = frame_idx
+
+        # If navigating manually, load the historical anchors if they exist.
+        # If tracking is active, let the tracking loop propagate the anchors.
+        if not self._is_tracking:
+            if frame_idx in self.anchors_history:
+                self.anchors = [
+                    list(pt) for pt in self.anchors_history[frame_idx]
+                ]
+
         # Calculate timestamp for PyAV seek (in stream time_base units)
         fps: float = float(self.video_stream.average_rate)
         time_base: float = float(self.video_stream.time_base)
@@ -198,9 +209,9 @@ class SnakeGUI(QMainWindow):
         if fps > 0 and time_base > 0:
             target_sec: float = frame_idx / fps
             target_pts: int = int(target_sec / time_base)
-            self.container.seek(target_pts, stream=self.video_stream)
+            self.container.seek(offset=target_pts, stream=self.video_stream)
 
-        # Decode frames until we grab the next available one.
+        # Decode frames until we grab the next available one
         for frame in self.container.decode(video=0):
             self.frame = frame.to_ndarray(format="rgb24")
             break
@@ -222,34 +233,38 @@ class SnakeGUI(QMainWindow):
         """
         Calculate the interpolated contour from the anchor points.
 
-        Uses piecewise cubic hermite interpolating polynomial (pchip)
-        to match MATLAB's default behavior, or linear if only 2 points
-        are provided.
+        Saves the current anchors to the frame history automatically.
+        Uses piecewise cubic hermite interpolating polynomial (pchip).
         """
         n_anchors: int = len(self.anchors)
+
+        # Auto-save current anchors into the history map
+        self.anchors_history[self.current_frame_idx] = [
+            list(pt) for pt in self.anchors
+        ]
 
         if n_anchors < 2:
             self.contour = None
             self._display_canvas()
             return
 
-        pts: np.ndarray = np.array(self.anchors)
+        pts: np.ndarray = np.array(object=self.anchors)
         n_points: int = self.points_input.value()
 
         # Calculate cumulative distances to parameterize the spline
-        diffs: np.ndarray = np.diff(pts, axis=0)
-        dists: np.ndarray = np.linalg.norm(diffs, axis=1)
-        k: np.ndarray = np.insert(np.cumsum(dists), 0, 0.0)
+        diffs: np.ndarray = np.diff(a=pts, axis=0)
+        dists: np.ndarray = np.linalg.norm(x=diffs, axis=1)
+        k: np.ndarray = np.insert(arr=np.cumsum(a=dists), obj=0, values=0.0)
 
-        k_new: np.ndarray = np.linspace(0, k[-1], n_points)
+        k_new: np.ndarray = np.linspace(start=0, stop=k[-1], num=n_points)
 
         # Use linear interpolation for 2 points, pchip for 3+
         if n_anchors == 2:
-            interp_func = interp1d(k, pts, axis=0)
+            interp_func = interp1d(x=k, y=pts, axis=0)
         else:
-            interp_func = PchipInterpolator(k, pts, axis=0)
+            interp_func = PchipInterpolator(x=k, y=pts, axis=0)
 
-        self.contour = interp_func(k_new)
+        self.contour = interp_func(x=k_new)
         self._display_canvas()
 
     def _display_canvas(self) -> None:
@@ -275,7 +290,7 @@ class SnakeGUI(QMainWindow):
 
         # Draw the interactive anchor points
         if self.anchors:
-            pts: np.ndarray = np.array(self.anchors)
+            pts: np.ndarray = np.array(object=self.anchors)
             self.ax.plot(
                 pts[:, 0],
                 pts[:, 1],
@@ -288,30 +303,15 @@ class SnakeGUI(QMainWindow):
         self.canvas.draw_idle()
 
     def _get_closest_anchor(self, x: float, y: float) -> int | None:
-        """
-        Find the index of the anchor closest to the given coordinates.
-
-        Parameters
-        ----------
-        x : float
-            X-coordinate of the mouse click.
-        y : float
-            Y-coordinate of the mouse click.
-
-        Returns
-        -------
-        int | None
-            The index of the closest anchor, or None if no anchor
-            is within the defined ANCHOR_CLICK_RADIUS.
-        """
+        """Find the index of the anchor closest to the given coordinates."""
         if not self.anchors:
             return None
 
-        pts: np.ndarray = np.array(self.anchors)
-        click: np.ndarray = np.array([x, y])
-        dists: np.ndarray = np.linalg.norm(pts - click, axis=1)
+        pts: np.ndarray = np.array(object=self.anchors)
+        click: np.ndarray = np.array(object=[x, y])
+        dists: np.ndarray = np.linalg.norm(x=pts - click, axis=1)
 
-        min_idx: int = int(np.argmin(dists))
+        min_idx: int = int(np.argmin(a=dists))
         if dists[min_idx] < ANCHOR_CLICK_RADIUS:
             return min_idx
         return None
@@ -365,26 +365,7 @@ class SnakeGUI(QMainWindow):
     def _compute_egrad(
         self, img: np.ndarray, sigma: float = 1.0
     ) -> np.ndarray:
-        """
-        Calculate the normalized external gradient energy map.
-
-        Mirrors the MATLAB 'Egrad.m' script by computing Gaussian
-        derivatives to find edges, then inverting so edges
-        become energy minimums (valleys) for the snake.
-
-        Parameters
-        ----------
-        img : np.ndarray
-            The 2D grayscale image array.
-        sigma : float
-            Standard deviation for the Gaussian filter.
-
-        Returns
-        -------
-        np.ndarray
-            A 2D array representing the gradient energy map.
-        """
-        # Calculate gradients using SciPy Gaussian derivatives
+        """Calculate the normalized external gradient energy map."""
         gx: np.ndarray = gaussian_filter1d(
             input=img, axis=1, sigma=sigma, order=1
         )
@@ -392,31 +373,18 @@ class SnakeGUI(QMainWindow):
             input=img, axis=0, sigma=sigma, order=1
         )
 
-        # Calculate gradient magnitude
         grad_mag: np.ndarray = np.sqrt(gx**2 + gy**2)
 
-        # Normalize to [0, 1]
-        max_val: float = float(np.max(grad_mag))
+        max_val: float = float(np.max(a=grad_mag))
         if max_val > 0:
             grad_mag = grad_mag / max_val
 
-        # Invert so edges represent minimum energy
         egrad: np.ndarray = 1.0 - grad_mag
-
-        # Ensure array is safely contiguous in memory for Cython
-        return np.ascontiguousarray(egrad)
+        return np.ascontiguousarray(a=egrad)
 
     def run_tracking(self) -> None:
         """
         Run the active contour (snake) tracking on the whole video.
-
-        Uses the currently placed anchors as the seed for the initial
-        frame, and iteratively tracks the contour frame-by-frame
-        until the end of the video. The GUI updates in real-time.
-
-        Returns
-        -------
-        None
         """
         if not self.anchors or self.container is None:
             return
@@ -426,95 +394,69 @@ class SnakeGUI(QMainWindow):
         self.points_input.setEnabled(False)
         self.btn_track.setEnabled(False)
 
-        # 2. Get frame bounds
+        self._is_tracking = True
+
         start_idx: int = self.slider.value()
         end_idx: int = self.slider.maximum()
 
-        # 3. Initialize snake parameters
-        current_pts: np.ndarray = np.array(self.anchors, dtype=np.float64)
-        current_pts = np.ascontiguousarray(current_pts)
-
+        # 2. Initialize snake parameters
+        current_pts: np.ndarray = np.array(
+            object=self.anchors, dtype=np.float64
+        )
+        current_pts = np.ascontiguousarray(a=current_pts)
         n_anchors: int = current_pts.shape[0]
 
-        # Search window for each snaxel (defaulting to 10 pixels)
         delta: np.ndarray = np.full(
             shape=n_anchors, fill_value=10, dtype=np.int32
         )
 
-        # Hyperparameters for Cython execution
         band_penalty: float = 1.0
         alpha: float = 0.5
         lambda1: float = 0.5
         use_band_energy: int = 0
 
-        # 4. Process each frame sequentially
-        for frame_idx in range(start_idx, end_idx + 1):
-            # Advance slider and read the frame
-            self.slider.setValue(frame_idx)
+        # 3. Process each frame sequentially
+        try:
+            for frame_idx in range(start_idx, end_idx + 1):
+                self.slider.setValue(frame_idx)
+                QApplication.processEvents()
 
-            # Keep the GUI responsive and allow canvas to redraw
-            QApplication.processEvents()
+                if self.frame is None:
+                    continue
 
-            if self.frame is None:
-                continue
+                img_gray: np.ndarray = np.mean(a=self.frame, axis=2)
+                img_double: np.ndarray = np.ascontiguousarray(
+                    a=img_gray, dtype=np.float64
+                )
+                egrad: np.ndarray = self._compute_egrad(img=img_double)
 
-            # Convert RGB frame to 2D grayscale double array
-            img_gray: np.ndarray = np.mean(self.frame, axis=2)
-            img_double: np.ndarray = np.ascontiguousarray(
-                img_gray, dtype=np.float64
-            )
-
-            # Compute the external energy map
-            egrad: np.ndarray = self._compute_egrad(img=img_double)
-
-            # 5. Execute the Cython backend
-            try:
                 results = make_snake(
-                    img_double,
-                    egrad,
-                    current_pts,
-                    delta,
-                    band_penalty,
-                    alpha,
-                    lambda1,
-                    use_band_energy
+                    img_double, egrad, current_pts, delta,
+                    band_penalty, alpha, lambda1, use_band_energy
                 )
 
-                # Extract the updated points from the tuple returned
                 tracked_pts: np.ndarray = results[0]
-
-                # Handle possible 1D flattening from Cython
                 if tracked_pts.ndim == 1:
                     current_pts = tracked_pts.reshape(n_anchors, 2)
                 else:
                     current_pts = tracked_pts
 
-                # 6. Update GUI state with the new anchors
+                # 4. Update state; _update_spline() will auto-save to history
                 self.anchors = current_pts.tolist()
                 self._update_spline()
 
-            except Exception as e:
-                print(f"Tracking interrupted at frame {frame_idx}: {e}")
-                break
+        except Exception as e:
+            print(f"Tracking interrupted at frame {frame_idx}: {e}")
 
-        # Re-enable navigation once tracking is complete
-        self.slider.setEnabled(True)
-        self.points_input.setEnabled(True)
-        self.btn_track.setEnabled(True)
+        finally:
+            self._is_tracking = False
+            self.slider.setEnabled(True)
+            self.points_input.setEnabled(True)
+            self.btn_track.setEnabled(True)
 
 
 def launch_gui() -> None:
-    """
-    Application entry point for the GUI.
-
-    Instantiates the QApplication and main window, then starts
-    the Qt event loop.
-
-    Examples
-    --------
-    >>> from super_slurpy.gui import launch_gui
-    >>> launch_gui()
-    """
+    """Application entry point for the GUI."""
     app = QApplication(sys.argv)
     window = SnakeGUI()
     window.show()
