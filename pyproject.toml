@@ -8,14 +8,23 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "cffi>=2.0.0",
-    "matplotlib>=3.10.8",
-    "pyqt6>=6.10.2",
+    "click>=8.3.3",
+    "numpy>=2.4.4",
+    "pillow>=12.2.0",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
 slurpy = "super_slurpy:main"
 super-slurpy = "super_slurpy:main"
+
+[project.optional-dependencies]
+gui = [
+    "matplotlib>=3.10.8",
+    "opencv-python>=4.13.0.92",
+    "pyqt6>=6.11.0",
+    "scipy>=1.17.1",
+]
 
 [build-system]
 requires = ["hatchling"]
