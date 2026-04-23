@@ -1,1 +1,1 @@
-recursive-include src *.pyx *.pxd
+recursive-include src *.pyx *.pxd *.h *.c
