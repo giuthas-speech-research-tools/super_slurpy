@@ -27,6 +27,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- v0.4.0 will add API documentation with sphinx.
 - v1.0 will be released after documentation is updated and functionality has
   been integration tested.
 
