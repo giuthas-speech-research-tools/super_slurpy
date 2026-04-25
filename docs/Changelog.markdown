@@ -38,11 +38,23 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - The GUI is now functional.
 - The command line interface (CLI) is now functional.
 - There is a mechanism for saving the seed snake.
+- Snake tracking parameters can be edited in the GUI.
+- Splines can be saved and loaded to/from .csv files.
 
 ### Added
 
 - A lot of copied GUI functionality based on the Matlab implementation.
-- Basic command line interface for processing a single file.
+- Basic command line interface for processing a single file or a all videos in
+  a directory.
+- Seed snake saving and loading mechanisms.
+- Snake tracking parameters editor in the GUI. 
+- Spline saving and loading functions.
+
+### Bugs 
+
+- The gui focus can get stuck in the parameter edit fields preventing use of
+  left and right arrow keys to flip through the frames.
+
 
 
 ## [0.2.1] - 2026-04-23
