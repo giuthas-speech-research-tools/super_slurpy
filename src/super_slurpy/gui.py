@@ -1440,13 +1440,9 @@ def launch_gui(
         window.slider.setRange(0, window.model.total_frames - 1)
         window.slider.setValue(start_frame)
 
-        window.slider.setEnabled(True)
-        window.btn_track_snake.setEnabled(True)
-        window.action_track_snake.setEnabled(True)
-        window.btn_track_curr.setEnabled(True)
-        window.action_track_curr_snake.setEnabled(True)
-
+        window._set_tracking_controls_enabled(enabled=True)
         window._read_and_display_frame(frame_idx=start_frame)
+
         if window.model.seed_spline:
             window.action_apply_seed.setEnabled(True)
 

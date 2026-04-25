@@ -398,6 +398,8 @@ class SlurpyModel:
     ) -> list[list[float]]:
         """
         Internal helper to run particle filter for a single frame.
+        Evaluates generated particles using the snake energy model to
+        find the optimal contour.
 
         Parameters
         ----------
@@ -422,7 +424,7 @@ class SlurpyModel:
 
         base_contour = np.array(object=base_anchors, dtype=np.float64)
 
-        # What: Generate particle hypotheses and fit the contour.
+        # What: Generate particle hypotheses based on motion model.
         # Why: Seeds the evaluation pool for contour fitting.
         particles = run_particle_filter(
             base_contour=base_contour,
@@ -430,10 +432,54 @@ class SlurpyModel:
             noise_scale=noise_scale,
         )
 
-        # What: Assign the best particle to the current frame.
-        # Why: Progresses the tracking sequence.
-        best_particle = particles[0]
-        self.anchors = best_particle.tolist()
+        # Pre-compute image gradients for snake evaluation
+        img_gray: np.ndarray = np.mean(a=self.frame, axis=2)
+        img_double: np.ndarray = np.ascontiguousarray(
+            a=img_gray, dtype=np.float64
+        )
+        egrad: np.ndarray = self._compute_egrad(img=img_double)
+
+        best_energy: float = float("inf")
+        best_particle_pts: np.ndarray = particles[0]
+
+        # What: Evaluate each particle through the snake model.
+        # Why: Replicates MATLAB behavior by using the external image
+        #      energy to pick and refine the most accurate particle.
+        for particle in particles:
+            current_pts: np.ndarray = np.ascontiguousarray(
+                a=particle, dtype=np.float64
+            )
+            n_anchors: int = current_pts.shape[0]
+            delta: np.ndarray = np.full(
+                shape=n_anchors, fill_value=10, dtype=np.int32
+            )
+
+            # Push hypothesis to the Cython snake wrapper
+            results = make_snake(
+                img_double,
+                egrad,
+                current_pts,
+                delta,
+                self.config.snake.band_penalty,
+                self.config.snake.alpha,
+                self.config.snake.lambda1,
+                use_band_energy=0,
+            )
+
+            tracked_pts: np.ndarray = results[0]
+            # Assuming make_snake returns energies as the second element
+            # like [pxy, p_energy] in MATLAB
+            energy_array: np.ndarray = results[1]
+            total_energy: float = float(np.sum(a=energy_array))
+
+            if total_energy < best_energy:
+                best_energy = total_energy
+                best_particle_pts = tracked_pts
+
+        if best_particle_pts.ndim == 1:
+            best_particle_pts = best_particle_pts.reshape(-1, 2)
+
+        self.anchors = best_particle_pts.tolist()
         self.update_spline()
 
         return self.anchors
