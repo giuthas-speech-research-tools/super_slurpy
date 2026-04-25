@@ -1,5 +1,5 @@
 """
-Setup script for compiling Cython extensions in Super-Slurpy.
+Setup script for compiling Cython extensions in Slurpy.
 """
 
 import numpy as np
@@ -15,14 +15,14 @@ extensions = [
             "src/super_slurpy/core.pyx",
 
             # 2. The core C algorithm files (from the old Makefile)
-            "src/super_slurpy/snake.c",
-            "src/super_slurpy/image.c",
-            "src/super_slurpy/pnpoly.c",
-            "src/super_slurpy/spline.c"
+            "src/super_slurpy/_c_lib/snake.c",
+            "src/super_slurpy/_c_lib/image.c",
+            "src/super_slurpy/_c_lib/pnpoly.c",
+            "src/super_slurpy/_c_lib/spline.c"
         ],
         include_dirs=[
             np.get_include(),
-            "src/super_slurpy"  # To find snake.h, image.h, etc.
+            "src/super_slurpy/_c_lib"  # To find snake.h, image.h, etc.
         ],
     )
 ]

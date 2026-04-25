@@ -1,4 +1,4 @@
-cdef extern from "snake.h":
+cdef extern from "_c_lib/snake.h":
     void snake_create_adaptive(
         double *img, double *egrad, int cols, int rows,
         double *init_pts, int ninit, int *delta,

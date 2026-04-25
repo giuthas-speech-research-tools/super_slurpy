@@ -7,7 +7,7 @@ import numpy as np
 cimport numpy as cnp
 
 # Import the C function we defined in the .pxd file
-from .snake cimport snake_create_adaptive
+from .core cimport snake_create_adaptive
 
 def make_snake(
     double[:, ::1] img,        # The ::1 ensures the array is C-contiguous in memory
