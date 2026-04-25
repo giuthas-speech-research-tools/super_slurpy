@@ -311,25 +311,36 @@ class SnakeGUI(QMainWindow):
         """
         Read a specific frame from the video and update the display.
 
+        This method ensures that both the anchor points and the
+        interpolated spline are synchronized with the visual frame.
+
         Parameters
         ----------
         frame_idx : int
-            The index of the frame to retrieve.
+            The index of the frame to retrieve and render.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui._read_and_display_frame(frame_idx=10)
         """
         if self.container is None or self.video_stream is None:
             return
 
         self.current_frame_idx = frame_idx
 
-        # If navigating manually, load the historical anchors if they exist.
-        # If tracking is active, let the tracking loop propagate the anchors.
+        # Retrieve saved anchors for this frame if we aren't tracking
         if not self._is_tracking:
             if frame_idx in self.anchors_history:
                 self.anchors = [
                     list(pt) for pt in self.anchors_history[frame_idx]
                 ]
 
-        # Calculate timestamp for PyAV seek (in stream time_base units)
+        # Seek to the correct timestamp based on video metadata
         fps: float = float(self.video_stream.average_rate)
         time_base: float = float(self.video_stream.time_base)
 
@@ -338,12 +349,14 @@ class SnakeGUI(QMainWindow):
             target_pts: int = int(target_sec / time_base)
             self.container.seek(offset=target_pts, stream=self.video_stream)
 
-        # Decode frames until we grab the next available one
+        # Decode and store the raw RGB frame
         for frame in self.container.decode(video=0):
             self.frame = frame.to_ndarray(format="rgb24")
             break
 
-        self._display_canvas()
+        # Trigger a spline recalculation to update the blue contour
+        # before rendering the final canvas state.
+        self._update_spline()
 
     def on_slider_change(self, value: int) -> None:
         """
@@ -395,17 +408,32 @@ class SnakeGUI(QMainWindow):
         self._display_canvas()
 
     def _display_canvas(self) -> None:
-        """Render the video frame, anchors, and spline to the canvas."""
+        """
+        Render the video frame, anchors, and spline to the canvas.
+
+        Uses immediate drawing (canvas.draw) to ensure tracking
+        updates are visible on screen in real-time.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui._display_canvas()
+        """
         if self.frame is None:
             return
 
+        # Clear axes to refresh background and all line artists
         self.ax.clear()
         self.ax.set_axis_off()
 
-        # Frame is already RGB via PyAV to_ndarray
+        # Display the ultrasound frame as the bottom layer
         self.ax.imshow(X=self.frame)
 
-        # Draw the interpolated spline contour
+        # Draw the blue spline contour if calculated
         if self.contour is not None:
             self.ax.plot(
                 self.contour[:, 0],
@@ -415,7 +443,7 @@ class SnakeGUI(QMainWindow):
                 linewidth=2
             )
 
-        # Draw the interactive anchor points
+        # Draw the red interactive anchor points
         if self.anchors:
             pts: np.ndarray = np.array(object=self.anchors)
             self.ax.plot(
@@ -427,7 +455,8 @@ class SnakeGUI(QMainWindow):
                 markersize=6
             )
 
-        self.canvas.draw_idle()
+        # Force an immediate redraw of the canvas widget
+        self.canvas.draw()
 
     def _get_closest_anchor(self, x: float, y: float) -> int | None:
         """Find the index of the anchor closest to the given coordinates."""
