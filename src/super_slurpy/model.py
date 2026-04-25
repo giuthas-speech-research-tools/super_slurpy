@@ -1,5 +1,5 @@
 """
-Core data model and tracking logic for Super-Slurpy.
+Core data model and tracking logic for slurpy.
 
 This module isolates the application state (video processing,
 anchor points history, and active contour tracking) from the
@@ -76,14 +76,14 @@ class SlurpyModel:
         self.contour: np.ndarray | None = None
 
         self.seed_spline: list[list[float]] | None = None
-        
+
         # Load the seed spline upon instantiation
         self._load_initial_seed_spline()
 
     def _load_initial_seed_spline(self) -> None:
         """
         Attempt to load the seed spline from package resources.
-        
+
         Checks config paths and falls back to package data if missing.
         """
         filename = self.config.gui.seed_spline_file or DEFAULT_SEED_SPLINE
@@ -120,7 +120,7 @@ class SlurpyModel:
             The raw string content of the CSV file.
         """
         reader = csv.reader(content.splitlines())
-        
+
         # We manually invoke next to evaluate the header format
         header = next(reader, None)
 
@@ -157,7 +157,7 @@ class SlurpyModel:
         path = Path(file_path)
         if not path.is_file():
             raise FileNotFoundError(f"Seed file not found: {file_path}")
-            
+
         # Parse the extracted string text
         self._parse_seed_csv(content=path.read_text(encoding="utf-8"))
 
@@ -187,7 +187,7 @@ class SlurpyModel:
         self.video_stream = self.container.streams.video[0]
 
         self.total_frames = self.video_stream.frames
-        
+
         # Fix 0 length containers by falling back to arbitrary large number
         if self.total_frames == 0:
             self.total_frames = 1000
@@ -199,7 +199,7 @@ class SlurpyModel:
             start_frame = int(
                 self.config.gui.proportional_frame * (self.total_frames - 1)
             )
-            
+
         return max(0, min(start_frame, self.total_frames - 1))
 
     def read_frame(self, frame_idx: int) -> None:
@@ -238,10 +238,10 @@ class SlurpyModel:
     def update_spline(self) -> None:
         """
         Calculate the interpolated contour and auto-save anchors.
-        
+
         Uses PCHIP interpolation for smooth bounds and linear mappings 
         for 2-point arrays. Updates internal contour state.
-        
+
         Examples
         --------
         >>> model = SlurpyModel()
@@ -299,7 +299,7 @@ class SlurpyModel:
 
         grad_mag: np.ndarray = np.sqrt(gx**2 + gy**2)
         max_val: float = float(np.max(a=grad_mag))
-        
+
         if max_val > 0:
             grad_mag = grad_mag / max_val
 
@@ -340,7 +340,7 @@ class SlurpyModel:
         img_double: np.ndarray = np.ascontiguousarray(
             a=img_gray, dtype=np.float64
         )
-        
+
         # Acquire boundary detection mappings
         egrad: np.ndarray = self._compute_egrad(img=img_double)
 
@@ -402,7 +402,7 @@ class SlurpyModel:
     def track_current_frame(self) -> None:
         """
         Run tracking on the current frame only.
-        
+
         Uses existing anchors if present; otherwise, falls back to
         the loaded seed spline.
 
@@ -418,7 +418,7 @@ class SlurpyModel:
             else:
                 # No anchors and no seed available to start from
                 return
-        
+
         self.process_frame(frame_idx=self.current_frame_idx)
 
     def save_csv(self, file_path: str) -> None:
@@ -465,11 +465,11 @@ class SlurpyModel:
                 frame = int(row["frame"])
                 x = float(row["x"])
                 y = float(row["y"])
-                
+
                 # Assign to correct frame matrix groupings
                 if frame not in new_history:
                     new_history[frame] = []
-                    
+
                 new_history[frame].append([x, y])
-                
+
         self.anchors_history = new_history

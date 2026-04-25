@@ -1,10 +1,16 @@
 """
-Graphical User Interface for Super-Slurpy.
+GUI for slurpy.
 
 Provides an interactive PyQt6 window replicating the functionality
 of the legacy MATLAB SLURP.m script. It includes video loading,
 frame navigation via sliders, and fully interactive anchor point
 management (add, drag, delete, clear) with real-time splines.
+
+Examples
+--------
+>>> # The GUI is typically launched via the CLI module:
+>>> # from super_slurpy.gui import launch_gui
+>>> # launch_gui()
 """
 
 import csv
@@ -40,28 +46,69 @@ from super_slurpy.model import SlurpyModel
 class SnakeGUI(QMainWindow):
     """
     Main application window for the Slurpy Contour Editor.
+
+    This class encapsulates the entirely of the visual and interactive
+    elements used for tracking and correcting contour points.
+
+    Examples
+    --------
+    >>> # Start the application and initialize the main window
+    >>> app = QApplication(sys.argv)
+    >>> window = SnakeGUI()
+    >>> window.show()
     """
 
     def __init__(self) -> None:
         """
         Initialize the PyQt Main Window Application Frame.
+
+        Sets up the core model, interactive states, and triggers
+        the construction of the UI layout and menus.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> window = SnakeGUI()
         """
+        # What: Initialize the base QMainWindow class.
+        # Why: Required to inherit the Qt main window properties.
         super().__init__()
-        self.setWindowTitle(title="Slurpy Contour Editor")
+        self.setWindowTitle("Slurpy Contour Editor")
         self.model = SlurpyModel()
 
+        # What: Track which point is being actively dragged.
+        # Why: Enables interactive movement of contour nodes.
         self._drag_idx: int | None = None
         self._is_tracking: bool = False
 
+        # What: Initialize the view components.
+        # Why: Separating UI logic keeps the constructor clean.
         self._init_ui()
         self._init_menus()
 
     def _init_ui(self) -> None:
         """
         Construct the PyQt UI elements and Matplotlib canvas.
+
+        Builds the toolbars, buttons, video timeline slider, and
+        the interactive Matplotlib figure canvas.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Internally called during initialization
+        >>> # window._init_ui()
         """
+        # What: Create a central widget and layout.
+        # Why: QMainWindow requires a central widget for custom layouts.
         main_widget = QWidget(parent=self)
-        self.setCentralWidget(widget=main_widget)
+        self.setCentralWidget(main_widget)
         layout = QVBoxLayout(main_widget)
 
         toolbar = QHBoxLayout()
@@ -103,11 +150,15 @@ class SnakeGUI(QMainWindow):
         toolbar.addWidget(self.btn_load)
         layout.addLayout(toolbar)
 
+        # What: Create the timeline slider.
+        # Why: Allows the user to scrub through the video frames.
         self.slider = QSlider(orientation=Qt.Orientation.Horizontal)
         self.slider.setEnabled(False)
         self.slider.valueChanged.connect(slot=self.on_slider_change)
         layout.addWidget(self.slider)
 
+        # What: Setup Matplotlib canvas inside PyQt.
+        # Why: Enables rendering numpy arrays and plotting splines.
         self.figure = Figure()
         self.canvas = FigureCanvasQTAgg(figure=self.figure)
         self.ax = self.figure.add_subplot(111)
@@ -118,6 +169,8 @@ class SnakeGUI(QMainWindow):
         self.ax.set_axis_off()
         layout.addWidget(self.canvas)
 
+        # What: Bind mouse events to the canvas.
+        # Why: Provides user interactivity for points.
         self.canvas.mpl_connect(
             s="button_press_event", func=self.on_mouse_press
         )
@@ -128,6 +181,9 @@ class SnakeGUI(QMainWindow):
             s="button_release_event", func=self.on_mouse_release
         )
 
+        # What: Remove focus policy from interactive buttons.
+        # Why: Prevents arrow keys from shifting focus instead of
+        # changing frames.
         self.slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_load.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_track.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -136,9 +192,19 @@ class SnakeGUI(QMainWindow):
     def _init_menus(self) -> None:
         """
         Initialize the application menu bar and actions.
+
+        Binds keyboard shortcuts and standard actions to the top menu.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Internally called during initialization
+        >>> # window._init_menus()
         """
         menu_bar = self.menuBar()
-
         file_menu = menu_bar.addMenu("&File")
 
         action_open = QAction(text="&Open Video", parent=self)
@@ -167,7 +233,7 @@ class SnakeGUI(QMainWindow):
         file_menu.addAction(action_load_seed_spline)
 
         action_save_spline = QAction(
-            text="&Save current spline as default", parent=self
+            text="&Save current spline as seed", parent=self
         )
         action_save_spline.triggered.connect(slot=self.save_seed_spline)
         file_menu.addAction(action_save_spline)
@@ -246,61 +312,112 @@ class SnakeGUI(QMainWindow):
     def _next_frame(self) -> None:
         """
         Advance exactly one frame index forward if valid.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Triggered by the "Next Frame" menu action
+        >>> # window._next_frame()
         """
+        # What: Prevent UI jumping while tracking is running.
+        # Why: Interaction during processing causes state corruption.
         if self._is_tracking:
             return
-            
+
         current_val: int = self.slider.value()
         if current_val < self.slider.maximum():
-            self.slider.setValue(value=current_val + 1)
+            self.slider.setValue(current_val + 1)
 
     def _prev_frame(self) -> None:
         """
         Rollback exactly one frame index backward if valid.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Triggered by the "Previous Frame" menu action
+        >>> # window._prev_frame()
         """
         if self._is_tracking:
             return
-            
+
         current_val: int = self.slider.value()
         if current_val > self.slider.minimum():
-            self.slider.setValue(value=current_val - 1)
+            self.slider.setValue(current_val - 1)
 
     def keyPressEvent(self, event: Any) -> None:
         """
         Intercept application-wide keyboard pushes to override
         arrow-key traversals.
+
+        Parameters
+        ----------
+        event : Any
+            The PyQt key press event data.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Triggered internally by PyQt on keystrokes
         """
         if not self.slider.isEnabled():
             return
 
+        # What: Map left and right arrows to slider manipulation.
+        # Why: Improves user accessibility and speed of navigation.
         if event.key() == Qt.Key.Key_Left:
             new_val = max(0, self.slider.value() - 1)
-            self.slider.setValue(value=new_val)
+            self.slider.setValue(new_val)
         elif event.key() == Qt.Key.Key_Right:
             new_val = min(self.slider.maximum(), self.slider.value() + 1)
-            self.slider.setValue(value=new_val)
+            self.slider.setValue(new_val)
         else:
+            # Pass all other keys up the hierarchy
             super().keyPressEvent(event)
 
     def open_video(self) -> None:
         """
         Trigger file dialogue to target and parse a container video.
+
+        Extracts the required length and configures the tracking timeline.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Triggered by the open video button click
+        >>> # window.open_video()
         """
+        # What: Prompt user for input video file.
+        # Why: Defines the data source for processing.
         file_path, _ = QFileDialog.getOpenFileName(
-            parent=self, 
-            caption="Open video", 
-            directory="", 
+            parent=self,
+            caption="Open video",
+            directory="",
             filter=VIDEO_FILTER
         )
-        
+
         if not file_path:
             return
 
         start_frame = self.model.open_video(file_path=file_path)
 
         self.slider.setRange(0, self.model.total_frames - 1)
-        self.slider.setValue(value=start_frame)
+        self.slider.setValue(start_frame)
 
+        # What: Enable track controls now that media is loaded.
+        # Why: Prevents operations on empty models.
         self.slider.setEnabled(True)
         self.btn_track.setEnabled(True)
         self.action_track.setEnabled(True)
@@ -315,7 +432,23 @@ class SnakeGUI(QMainWindow):
     def _read_and_display_frame(self, frame_idx: int) -> None:
         """
         Command rendering updates on internal data states per frame.
+
+        Parameters
+        ----------
+        frame_idx : int
+            The target frame index to load and map.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Triggered when timeline slider moves
+        >>> # window._read_and_display_frame(frame_idx=5)
         """
+        # What: Fetch history if we are manually jumping frames.
+        # Why: Keeps user edits intact instead of overwriting them.
         if not self._is_tracking:
             if frame_idx in self.model.anchors_history:
                 self.model.anchors = [
@@ -324,21 +457,44 @@ class SnakeGUI(QMainWindow):
 
         self.model.read_frame(frame_idx=frame_idx)
         self.model.update_spline()
-        
+
         if hasattr(self, "action_resample"):
             self.action_resample.setEnabled(len(self.model.anchors) >= 2)
-            
+
         self._display_canvas()
 
     def on_slider_change(self, value: int) -> None:
         """
         Callback bound to the application's global video timeline track.
+
+        Parameters
+        ----------
+        value : int
+            The new frame index from the slider.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Triggered when user scrubs the UI slider
+        >>> # window.on_slider_change(value=10)
         """
         self._read_and_display_frame(frame_idx=value)
 
     def _display_canvas(self) -> None:
         """
         Calculate and map visual layers back up to the frontend UI array.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Internally triggers a screen redraw
+        >>> # window._display_canvas()
         """
         if self.model.frame is None:
             return
@@ -348,15 +504,18 @@ class SnakeGUI(QMainWindow):
 
         height, width = self.model.frame.shape[:2]
 
+        # What: Render the background video frame layer.
+        # Why: Provides visual context for point placement.
         self.ax.imshow(
-            X=self.model.frame, 
-            aspect="equal", 
+            X=self.model.frame,
+            aspect="equal",
             extent=[0, width, height, 0]
         )
         self.ax.set_xlim(0, width)
         self.ax.set_ylim(height, 0)
 
-        # Plot interpolated borders
+        # What: Plot the interpolated snake boundary.
+        # Why: Shows the user the current model interpretation.
         if self.model.contour is not None:
             self.ax.plot(
                 self.model.contour[:, 0],
@@ -366,7 +525,8 @@ class SnakeGUI(QMainWindow):
                 linewidth=1,
             )
 
-        # Plot user-defined points
+        # What: Plot the interactive user anchor nodes.
+        # Why: Allows direct manipulation.
         if self.model.anchors:
             pts: np.ndarray = np.array(object=self.model.anchors)
             self.ax.plot(
@@ -383,10 +543,29 @@ class SnakeGUI(QMainWindow):
     def _get_closest_anchor(self, x: float, y: float) -> int | None:
         """
         Evaluate if user clicks exist within hit-box distances of data.
+
+        Parameters
+        ----------
+        x : float
+            The x-coordinate of the mouse event.
+        y : float
+            The y-coordinate of the mouse event.
+
+        Returns
+        -------
+        int | None
+            Index of the closest anchor, or None if none are near.
+
+        Examples
+        --------
+        >>> # Resolves click targeting
+        >>> # idx = window._get_closest_anchor(x=10.0, y=20.0)
         """
         if not self.model.anchors:
             return None
 
+        # What: Calculate Euclidean distances from click to all nodes.
+        # Why: Required to snap mouse interactions to points.
         pts: np.ndarray = np.array(object=self.model.anchors)
         click: np.ndarray = np.array(object=[x, y])
         dists: np.ndarray = np.linalg.norm(x=pts - click, axis=1)
@@ -394,13 +573,28 @@ class SnakeGUI(QMainWindow):
         min_idx: int = int(np.argmin(a=dists))
         if dists[min_idx] < ANCHOR_CLICK_RADIUS:
             return min_idx
-            
+
         return None
 
     def on_mouse_press(self, event: Any) -> None:
         """
         Callback mapped onto GUI left and right mouse click triggers.
+
+        Parameters
+        ----------
+        event : Any
+            The Matplotlib mouse press event object.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Handled by Matplotlib backend events
         """
+        # What: Filter out off-canvas interactions.
+        # Why: Prevents crashing when clicking on menus/borders.
         if event.inaxes != self.ax or event.xdata is None:
             return
 
@@ -414,7 +608,8 @@ class SnakeGUI(QMainWindow):
             x=event.xdata, y=event.ydata
         )
 
-        # Right click to delete mapped points
+        # What: Handle right-click deletions.
+        # Why: Standard UI pattern for point removal.
         if event.button == 3:
             if closest_idx is not None:
                 self.model.anchors.pop(closest_idx)
@@ -422,7 +617,8 @@ class SnakeGUI(QMainWindow):
                 self._display_canvas()
             return
 
-        # Left click to define or grab a given anchor point mapping
+        # What: Handle left-click additions and drag initiation.
+        # Why: UI entry point for defining/moving anchor nodes.
         if event.button == 1:
             if closest_idx is not None:
                 self._drag_idx = closest_idx
@@ -434,10 +630,25 @@ class SnakeGUI(QMainWindow):
     def on_mouse_motion(self, event: Any) -> None:
         """
         Follow mouse vector mapping strings while UI triggers are held.
+
+        Parameters
+        ----------
+        event : Any
+            The Matplotlib mouse motion event object.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Handled continuously during point dragging
         """
         if self._drag_idx is None or event.inaxes != self.ax:
             return
 
+        # What: Actively update the position of the dragged point.
+        # Why: Provides real-time visual feedback.
         if event.xdata is not None and event.ydata is not None:
             self.model.anchors[self._drag_idx] = [event.xdata, event.ydata]
             self.model.update_spline()
@@ -446,13 +657,37 @@ class SnakeGUI(QMainWindow):
     def on_mouse_release(self, event: Any) -> None:
         """
         Release mapping targets when UI mouse interactions stop.
+
+        Parameters
+        ----------
+        event : Any
+            The Matplotlib mouse release event object.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Drops the node lock when mouse unclicks
         """
+        # What: Clear the drag target variable.
+        # Why: Finalizes the point interaction cleanly.
         if event.button == 1:
             self._drag_idx = None
 
     def save_results_to_csv(self) -> None:
         """
         Invoke file writing interfaces via standardized OS save dialog.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Opens the native file explorer to save states
+        >>> # window.save_results_to_csv()
         """
         if not self.model.anchors_history:
             self.statusBar().showMessage(
@@ -478,6 +713,15 @@ class SnakeGUI(QMainWindow):
     def load_results_from_csv(self) -> None:
         """
         Invoke file reading interfaces via standardized OS load dialog.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Overwrites current session with loaded CSV state
+        >>> # window.load_results_from_csv()
         """
         file_path, _ = QFileDialog.getOpenFileName(
             parent=self,
@@ -511,12 +755,23 @@ class SnakeGUI(QMainWindow):
 
     def run_tracking(self) -> None:
         """
-        Temporarily disable interactions while executing the Cython 
+        Temporarily disable interactions while executing the Cython
         algorithm tracking bounds pass forwards and backward.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Starts full pipeline automation pass
+        >>> # window.run_tracking()
         """
         if not self.model.anchors or self.model.container is None:
             return
 
+        # What: Lock the UI buttons and menus.
+        # Why: Prevents concurrent modifications to data maps.
         self.slider.setEnabled(False)
         self.btn_track.setEnabled(False)
         self.action_track.setEnabled(False)
@@ -530,7 +785,7 @@ class SnakeGUI(QMainWindow):
         init_anchors: list[list[float]] = [list(a) for a in self.model.anchors]
 
         for frame_idx in range(start_idx + 1, self.model.total_frames):
-            self.slider.setValue(value=frame_idx)
+            self.slider.setValue(frame_idx)
             QApplication.processEvents()
             self.model.process_frame(frame_idx=frame_idx)
             self._display_canvas()
@@ -540,51 +795,73 @@ class SnakeGUI(QMainWindow):
         self.model.update_spline()
 
         for frame_idx in range(start_idx - 1, -1, -1):
-            self.slider.setValue(value=frame_idx)
+            self.slider.setValue(frame_idx)
             QApplication.processEvents()
             self.model.process_frame(frame_idx=frame_idx)
             self._display_canvas()
 
         self._is_tracking = False
-        
+
+        # What: Restore UI interactions.
+        # Why: Tracking cycle finished successfully.
         self.slider.setEnabled(True)
         self.btn_track.setEnabled(True)
         self.action_track.setEnabled(True)
         self.btn_track_curr.setEnabled(True)
         self.action_track_curr.setEnabled(True)
-        
+
         self.action_resample.setEnabled(len(self.model.anchors) >= 2)
-        self.slider.setValue(value=start_idx)
+        self.slider.setValue(start_idx)
 
     def track_current_frame_action(self) -> None:
         """
         Action callback to trigger frame-specific snake calculations.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Executes isolated single-frame active contour logic
+        >>> # window.track_current_frame_action()
         """
         if self.model.container is None:
             return
-            
+
         self.model.track_current_frame()
         self._display_canvas()
-        
+
         if hasattr(self, "action_resample"):
             self.action_resample.setEnabled(len(self.model.anchors) >= 2)
 
     def resample_splines(self) -> None:
         """
         Recalculate internal history arrays to re-pad spacing densities.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Normalizes spacing of generated/edited points
+        >>> # window.resample_splines()
         """
         if not self.model.anchors or len(self.model.anchors) < 2:
             return
 
         current_count: int = len(self.model.anchors)
 
+        # What: Present input box for custom density sizes.
+        # Why: Users may need high fidelity curves for specific data.
         num_points, ok = QInputDialog.getInt(
-            self,
-            "Resample Splines",
-            "Number of control points:",
-            current_count,
-            2,
-            500,
+            parent=self,
+            title="Resample Splines",
+            label="Number of control points:",
+            value=current_count,
+            min=2,
+            max=500,
         )
 
         if not ok or num_points == current_count:
@@ -605,6 +882,7 @@ class SnakeGUI(QMainWindow):
                 start=0, stop=k[-1], num=num_points
             )
 
+            # Linear vs cubic evaluation based on point volume
             if n_pts == 2:
                 interp_func = interp1d(x=k, y=pts, axis=0)
             else:
@@ -615,20 +893,29 @@ class SnakeGUI(QMainWindow):
 
         if self.model.current_frame_idx in self.model.anchors_history:
             self.model.anchors = [
-                list(pt) for pt in 
+                list(pt) for pt in
                 self.model.anchors_history[self.model.current_frame_idx]
             ]
 
         self.model.update_spline()
         self._display_canvas()
         self.statusBar().showMessage(
-            f"Success: Resampled splines to {num_points} control points.", 
+            f"Success: Resampled splines to {num_points} control points.",
             5000
         )
 
     def save_seed_spline(self) -> None:
         """
         Record the active mapping points layer directly as a CSV template.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Exports the active contour to be reused later
+        >>> # window.save_seed_spline()
         """
         if not self.model.anchors:
             self.statusBar().showMessage("Warning: No spline to save.", 5000)
@@ -662,15 +949,28 @@ class SnakeGUI(QMainWindow):
     def load_seed_spline(self) -> None:
         """
         Trigger dialogue to inject formatted CSV files directly as seed map.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Imports and applies a new starting contour template
+        >>> # window.load_seed_spline()
         """
+        # What: Enforce data protection blocks before applying new seeds.
+        # Why: Applying a new master seed wipes active manual sessions.
         if len(self.model.anchors_history) > 1:
             reply = QMessageBox.question(
-                self,
-                "Confirm discard",
-                "Loading a new seed spline will discard all current "
-                "tracking data. Proceed?",
+                parent=self,
+                title="Confirm discard",
+                text=(
+                    "Loading a new seed spline will discard all current "
+                    "tracking data. Proceed?"
+                ),
                 buttons=(
-                    QMessageBox.StandardButton.Yes | 
+                    QMessageBox.StandardButton.Yes |
                     QMessageBox.StandardButton.No
                 ),
                 defaultButton=QMessageBox.StandardButton.No,
@@ -698,10 +998,10 @@ class SnakeGUI(QMainWindow):
                 self.model.anchors_history[self.model.current_frame_idx] = [
                     list(pt) for pt in self.model.anchors
                 ]
-                
+
                 if hasattr(self, "action_apply_seed"):
                     self.action_apply_seed.setEnabled(True)
-                    
+
                 self.model.update_spline()
                 self._display_canvas()
                 self.statusBar().showMessage(
@@ -710,26 +1010,39 @@ class SnakeGUI(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(
-                parent=self, 
-                title="Format Error", 
+                parent=self,
+                title="Format Error",
                 text=f"Failed to load spline correctly.\n\n{e}"
             )
 
     def apply_seed_spline(self) -> None:
         """
         Immediately replace all layer history mappings using template map.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Overwrites the active points with the master seed template
+        >>> # window.apply_seed_spline()
         """
         if self.model.seed_spline is None:
             return
 
+        # What: Enforce data protection blocks before applying new seeds.
+        # Why: Applying a new master seed wipes active manual sessions.
         if len(self.model.anchors_history) > 1:
             reply = QMessageBox.question(
-                self,
-                "Confirm apply",
-                "Applying the seed spline will discard all "
-                "current tracking data. Proceed?",
+                parent=self,
+                title="Confirm apply",
+                text=(
+                    "Applying the seed spline will discard all "
+                    "current tracking data. Proceed?"
+                ),
                 buttons=(
-                    QMessageBox.StandardButton.Yes | 
+                    QMessageBox.StandardButton.Yes |
                     QMessageBox.StandardButton.No
                 ),
                 defaultButton=QMessageBox.StandardButton.No,
@@ -750,14 +1063,23 @@ class SnakeGUI(QMainWindow):
     def clear_all_splines(self) -> None:
         """
         Delete all history variables after a standard prompt.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Clears all data from the active workspace
+        >>> # window.clear_all_splines()
         """
         if self.model.anchors_history:
             reply = QMessageBox.question(
-                self,
-                "Confirm Clear",
-                "This will discard all tracking data. Proceed?",
+                parent=self,
+                title="Confirm Clear",
+                text="This will discard all tracking data. Proceed?",
                 buttons=(
-                    QMessageBox.StandardButton.Yes | 
+                    QMessageBox.StandardButton.Yes |
                     QMessageBox.StandardButton.No
                 ),
                 defaultButton=QMessageBox.StandardButton.No,
@@ -765,6 +1087,8 @@ class SnakeGUI(QMainWindow):
             if reply == QMessageBox.StandardButton.No:
                 return
 
+        # What: Wipe current variables empty.
+        # Why: Ensures visual state reset.
         self.model.anchors.clear()
         self.model.anchors_history.clear()
         self.model.contour = None
@@ -774,7 +1098,7 @@ class SnakeGUI(QMainWindow):
 
 
 def launch_gui(
-    video_path: str | None = None, 
+    video_path: str | None = None,
     seed_path: str | None = None
 ) -> None:
     """
@@ -786,30 +1110,41 @@ def launch_gui(
         Automatically bind video on load. Defaults to None.
     seed_path : str | None, optional
         Automatically load configured seed splines. Defaults to None.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    >>> from super_slurpy.gui import launch_gui
+    >>> launch_gui(video_path="input.mp4", seed_path="seed.csv")
     """
     app = QApplication(sys.argv)
     window = SnakeGUI()
-    
+
     if seed_path:
         try:
             window.model.load_seed_spline_file(file_path=seed_path)
         except Exception as e:
             print(f"Warning: Failed to load CLI seed spline: {e}")
-            
+
+    # What: Initialize the loaded video directly on startup.
+    # Why: Enables direct drag-and-drop or CLI booting pipelines.
     if video_path:
         start_frame = window.model.open_video(file_path=video_path)
         window.slider.setRange(0, window.model.total_frames - 1)
-        window.slider.setValue(value=start_frame)
-        
+        window.slider.setValue(start_frame)
+
         window.slider.setEnabled(True)
         window.btn_track.setEnabled(True)
         window.action_track.setEnabled(True)
         window.btn_track_curr.setEnabled(True)
         window.action_track_curr.setEnabled(True)
-        
+
         window._read_and_display_frame(frame_idx=start_frame)
         if window.model.seed_spline:
             window.action_apply_seed.setEnabled(True)
-            
+
     window.show()
     sys.exit(app.exec())

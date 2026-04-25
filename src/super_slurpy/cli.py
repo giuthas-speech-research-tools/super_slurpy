@@ -18,7 +18,7 @@ from super_slurpy.model import SlurpyModel
 @click.group()
 def run_cli() -> None:
     """
-    Super-Slurpy: CLI and GUI for Python version of SLURP.
+    slurpy: CLI and GUI for Python version of SLURP.
     """
     pass
 

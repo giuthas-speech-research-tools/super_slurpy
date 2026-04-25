@@ -65,7 +65,7 @@ class SnakeConfig(BaseModel):
     band_penalty: float = 10.0
 
 
-class SuperSlurpyConfig(BaseModel):
+class SlurpyConfig(BaseModel):
     """
     Root configuration model for the application.
 
@@ -81,7 +81,7 @@ class SuperSlurpyConfig(BaseModel):
     snake: SnakeConfig = Field(default_factory=SnakeConfig)
 
 
-def load_config(config_dir: Path | None = None) -> SuperSlurpyConfig:
+def load_config(config_dir: Path | None = None) -> SlurpyConfig:
     """
     Load and validate the YAML configuration file.
 
@@ -100,7 +100,7 @@ def load_config(config_dir: Path | None = None) -> SuperSlurpyConfig:
 
     Returns
     -------
-    SuperSlurpyConfig
+    SlurpyConfig
         The validated configuration object populated with YAML data
         or default values if no file/data is found.
 
@@ -142,4 +142,4 @@ def load_config(config_dir: Path | None = None) -> SuperSlurpyConfig:
             content: str = resource_path.read_text(encoding="utf-8")
             raw_config = yaml.safe_load(stream=content) or {}
 
-    return SuperSlurpyConfig(**raw_config)
+    return SlurpyConfig(**raw_config)
