@@ -18,7 +18,7 @@ from super_slurpy.model import SlurpyModel
 @click.group()
 def run_cli() -> None:
     """
-    slurpy: CLI and GUI for Python version of SLURP.
+    Super-Slurpy: CLI and GUI for Python version of SLURP.
     """
     pass
 
@@ -38,7 +38,11 @@ def run_cli() -> None:
 )
 def gui(ultrasound: str | None, seed: str | None) -> None:
     """
-    Launch the interactive PyQt GUI.
+    Launch the interactive PyQt graphical user interface.
+
+    Attempts to load optional GUI dependencies and launch the main
+    application window. Gracefully alerts the user if dependencies
+    are not installed.
     """
     try:
         from super_slurpy.gui import launch_gui
@@ -54,6 +58,84 @@ def gui(ultrasound: str | None, seed: str | None) -> None:
     launch_gui(video_path=ultrasound, seed_path=seed)
 
 
+def _process_single_video(
+    video_path: Path,
+    seed: str | None,
+    output_path: Path | None
+) -> None:
+    """
+    Process a single video file using the active contour model.
+
+    Parameters
+    ----------
+    video_path : Path
+        The path to the input video file.
+    seed : str | None
+        The path to the seed spline CSV file.
+    output_path : Path | None
+        The explicit output path for the tracked CSV.
+
+    Returns
+    -------
+    None
+    """
+    click.echo(message=f"Processing {video_path} in headless mode...")
+
+    # What: Initialize the model, favoring local directory configs.
+    # Why: Ensures batch processing can use different params per folder.
+    model = SlurpyModel(config_dir=video_path.parent)
+
+    if seed:
+        try:
+            model.load_seed_spline_file(file_path=seed)
+        except Exception as e:
+            click.secho(
+                message=f"Error loading seed for {video_path}: {e}",
+                fg="red",
+                err=True
+            )
+            # Return instead of sys.exit so batch directory loops continue
+            return
+
+    if not model.seed_spline:
+        click.secho(
+            message="Error: A seed spline is required for batch processing.",
+            fg="red",
+            err=True,
+        )
+        sys.exit(1)
+
+    try:
+        start_frame = model.open_video(file_path=str(video_path))
+
+        # Apply the seed spline to the starting frame
+        model.anchors = [list(pt) for pt in model.seed_spline]
+        model.read_frame(frame_idx=start_frame)
+        model.update_spline()
+
+        click.echo(message=f"Starting tracking from frame {start_frame}...")
+        model.run_tracking(start_idx=start_frame)
+
+        # What: Resolve the final output path.
+        # Why: Respect explicit targets or fallback to a standard suffix.
+        out_path = output_path if output_path else video_path.with_name(
+            f"{video_path.stem}_tracked.csv"
+        )
+
+        model.save_csv(file_path=str(out_path))
+        click.secho(
+            message=f"Successfully saved results to {out_path}",
+            fg="green"
+        )
+
+    except Exception as e:
+        click.secho(
+            message=f"Error during processing {video_path}: {e}",
+            fg="red",
+            err=True
+        )
+
+
 @run_cli.command()
 @click.argument("input_path", type=click.Path(exists=True))
 @click.option(
@@ -66,51 +148,63 @@ def gui(ultrasound: str | None, seed: str | None) -> None:
     "--output",
     "-o",
     type=click.Path(),
-    help="Output CSV path. Defaults to input_path with _tracked.csv suffix.",
+    help=(
+        "Output CSV path (single file) or directory (batch). "
+        "Defaults to input_path with _tracked.csv suffix."
+    ),
 )
 def process(input_path: str, seed: str | None, output: str | None) -> None:
     """
-    Batch process a file in headless mode.
+    Process video files without launching the GUI.
+
+    INPUT_PATH can be a single video file or a directory containing
+    multiple videos. If a directory is provided, it will scan for
+    standard video formats (.mp4, .avi, .mkv) and process them
+    sequentially.
+
+    This command is ideal for scripting, background tasks, or mass
+    evaluations.
     """
-    click.echo(message=f"Processing {input_path} in headless mode...")
+    target_path = Path(input_path)
 
-    video_path = Path(input_path)
-    # Prefer config file in the same directory as the video
-    model = SlurpyModel(config_dir=video_path.parent)
-
-    if seed:
-        try:
-            model.load_seed_spline_file(file_path=seed)
-        except Exception as e:
-            click.secho(message=f"Error loading seed: {e}", fg="red", err=True)
-            sys.exit(1)
-
-    if not model.seed_spline:
-        click.secho(
-            message="Error: A seed spline is required for batch processing.",
-            fg="red",
-            err=True,
+    # What: Branch execution for single files vs entire folders.
+    # Why: Reuses the same command gracefully for mass processing.
+    if target_path.is_file():
+        out_path = Path(output) if output else None
+        _process_single_video(
+            video_path=target_path,
+            seed=seed,
+            output_path=out_path
         )
-        sys.exit(1)
 
-    try:
-        start_frame = model.open_video(file_path=input_path)
+    elif target_path.is_dir():
+        click.echo(
+            message=f"Scanning directory {target_path} for videos..."
+        )
 
-        # Apply the seed spline to the starting frame
-        model.anchors = [list(pt) for pt in model.seed_spline]
-        model.read_frame(frame_idx=start_frame)
-        model.update_spline()
+        # What: Enforce file extension screening.
+        # Why: Prevents crashing when evaluating non-video data.
+        valid_exts: tuple[str, ...] = (".mp4", ".avi", ".mkv")
+        video_files = [
+            p for p in target_path.iterdir()
+            if p.is_file() and p.suffix.lower() in valid_exts
+        ]
 
-        click.echo(message=f"Starting tracking from frame {start_frame}...")
-        model.run_tracking(start_idx=start_frame)
+        if not video_files:
+            click.secho(message="No video files found.", fg="yellow")
+            return
 
-        out_path = output if output else str(
-            video_path.with_name(f"{video_path.stem}_tracked.csv"))
-        model.save_csv(file_path=out_path)
-        click.secho(
-            message=f"Successfully saved results to {out_path}", fg="green")
+        out_dir = Path(output) if output else None
+        if out_dir and not out_dir.exists():
+            out_dir.mkdir(parents=True, exist_ok=True)
 
-    except Exception as e:
-        click.secho(
-            message=f"Error during processing: {e}", fg="red", err=True)
-        sys.exit(1)
+        for video_file in video_files:
+            file_out = (
+                out_dir / f"{video_file.stem}_tracked.csv"
+                if out_dir else None
+            )
+            _process_single_video(
+                video_path=video_file,
+                seed=seed,
+                output_path=file_out
+            )

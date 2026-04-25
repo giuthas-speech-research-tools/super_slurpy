@@ -31,16 +31,18 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   been integration tested.
 
 
-## [0.3.0] - 2026-04-23
+## [0.3.0] - 2026-04-25
 
 ### Highlights
 
 - The GUI is now functional.
-- There is an editable seed snake.
+- The command line interface (CLI) is now functional.
+- There is a mechanism for saving the seed snake.
 
 ### Added
 
 - A lot of copied GUI functionality based on the Matlab implementation.
+- Basic command line interface for processing a single file.
 
 
 ## [0.2.1] - 2026-04-23

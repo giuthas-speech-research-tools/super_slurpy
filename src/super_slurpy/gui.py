@@ -43,7 +43,7 @@ from super_slurpy.constants import (
 from super_slurpy.model import SlurpyModel
 
 
-class SnakeGUI(QMainWindow):
+class SlurpyGui(QMainWindow):
     """
     Main application window for the Slurpy Contour Editor.
 
@@ -54,7 +54,7 @@ class SnakeGUI(QMainWindow):
     --------
     >>> # Start the application and initialize the main window
     >>> app = QApplication(sys.argv)
-    >>> window = SnakeGUI()
+    >>> window = SlurpyGui()
     >>> window.show()
     """
 
@@ -284,9 +284,7 @@ class SnakeGUI(QMainWindow):
         self.action_apply_seed.triggered.connect(
             slot=self.apply_seed_spline
         )
-        self.action_apply_seed.setEnabled(
-            self.model.seed_spline is not None
-        )
+        self.action_apply_seed.setEnabled(False)
         action_menu.addAction(self.action_apply_seed)
 
         self.action_clear_splines = QAction(
@@ -458,8 +456,7 @@ class SnakeGUI(QMainWindow):
         self.model.read_frame(frame_idx=frame_idx)
         self.model.update_spline()
 
-        if hasattr(self, "action_resample"):
-            self.action_resample.setEnabled(len(self.model.anchors) >= 2)
+        self.action_resample.setEnabled(len(self.model.anchors) >= 2)
 
         self._display_canvas()
 
@@ -832,8 +829,7 @@ class SnakeGUI(QMainWindow):
         self.model.track_current_frame()
         self._display_canvas()
 
-        if hasattr(self, "action_resample"):
-            self.action_resample.setEnabled(len(self.model.anchors) >= 2)
+        self.action_resample.setEnabled(len(self.model.anchors) >= 2)
 
     def resample_splines(self) -> None:
         """
@@ -856,9 +852,9 @@ class SnakeGUI(QMainWindow):
         # What: Present input box for custom density sizes.
         # Why: Users may need high fidelity curves for specific data.
         num_points, ok = QInputDialog.getInt(
-            parent=self,
-            title="Resample Splines",
-            label="Number of control points:",
+            self,
+            "Resample splines",
+            "Number of control points:",
             value=current_count,
             min=2,
             max=500,
@@ -943,7 +939,7 @@ class SnakeGUI(QMainWindow):
             )
         except Exception as e:
             QMessageBox.critical(
-                parent=self, title="Error", text=f"Failed to save spline: {e}"
+                self, "Error", f"Failed to save spline: {e}"
             )
 
     def load_seed_spline(self) -> None:
@@ -963,9 +959,9 @@ class SnakeGUI(QMainWindow):
         # Why: Applying a new master seed wipes active manual sessions.
         if len(self.model.anchors_history) > 1:
             reply = QMessageBox.question(
-                parent=self,
-                title="Confirm discard",
-                text=(
+                self,
+                "Confirm discard",
+                (
                     "Loading a new seed spline will discard all current "
                     "tracking data. Proceed?"
                 ),
@@ -999,7 +995,7 @@ class SnakeGUI(QMainWindow):
                     list(pt) for pt in self.model.anchors
                 ]
 
-                if hasattr(self, "action_apply_seed"):
+                if self.model.total_frames > 0:
                     self.action_apply_seed.setEnabled(True)
 
                 self.model.update_spline()
@@ -1010,9 +1006,9 @@ class SnakeGUI(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(
-                parent=self,
-                title="Format Error",
-                text=f"Failed to load spline correctly.\n\n{e}"
+                self,
+                "Format Error",
+                f"Failed to load spline correctly.\n\n{e}"
             )
 
     def apply_seed_spline(self) -> None:
@@ -1035,9 +1031,9 @@ class SnakeGUI(QMainWindow):
         # Why: Applying a new master seed wipes active manual sessions.
         if len(self.model.anchors_history) > 1:
             reply = QMessageBox.question(
-                parent=self,
-                title="Confirm apply",
-                text=(
+                self,
+                "Confirm apply",
+                (
                     "Applying the seed spline will discard all "
                     "current tracking data. Proceed?"
                 ),
@@ -1067,17 +1063,12 @@ class SnakeGUI(QMainWindow):
         Returns
         -------
         None
-
-        Examples
-        --------
-        >>> # Clears all data from the active workspace
-        >>> # window.clear_all_splines()
         """
         if self.model.anchors_history:
             reply = QMessageBox.question(
-                parent=self,
-                title="Confirm Clear",
-                text="This will discard all tracking data. Proceed?",
+                self,
+                "Confirm clear",
+                "This will discard all tracking data. Proceed?",
                 buttons=(
                     QMessageBox.StandardButton.Yes |
                     QMessageBox.StandardButton.No
@@ -1121,7 +1112,7 @@ def launch_gui(
     >>> launch_gui(video_path="input.mp4", seed_path="seed.csv")
     """
     app = QApplication(sys.argv)
-    window = SnakeGUI()
+    window = SlurpyGui()
 
     if seed_path:
         try:
