@@ -31,7 +31,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - v1.0 will be released after documentation is updated and functionality has
   been integration tested.
 
-## [0.3.1] - 2026-04-25
+## [0.3.2] - 2026-04-25
 
 ### Highlights
 

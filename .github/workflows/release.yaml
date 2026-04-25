@@ -101,7 +101,7 @@ jobs:
 
       - name: Build wheels using cibuildwheel
         uses: pypa/cibuildwheel@v2.22.0
-        env:
+        # env:
           # CIBW_BUILD: "cp313-*" # Remove this line if you want to build for Python 3.8-3.12 too!
 
       - name: Upload wheels
