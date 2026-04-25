@@ -7,6 +7,7 @@ frame navigation via sliders, and fully interactive anchor point
 management (add, drag, delete, clear) with real-time splines.
 """
 
+import csv
 import sys
 from typing import Any
 
@@ -15,10 +16,19 @@ import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QApplication, QFileDialog, QHBoxLayout, QLabel,
-    QMainWindow, QPushButton, QSlider, QSpinBox,
-    QVBoxLayout, QWidget
+    QApplication,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSlider,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
 from scipy.interpolate import PchipInterpolator, interp1d
 from scipy.ndimage import gaussian_filter1d
@@ -89,6 +99,7 @@ class SnakeGUI(QMainWindow):
         self._is_tracking: bool = False
 
         self._init_ui()
+        self._init_shortcuts()
 
     def _init_ui(self) -> None:
         """
@@ -103,12 +114,31 @@ class SnakeGUI(QMainWindow):
 
         # 1. Toolbar Setup
         toolbar = QHBoxLayout()
-        btn_open = QPushButton(text="Open Video", parent=main_widget)
+
+        btn_open = QPushButton(
+            text="Open Video (Ctrl+O)",
+            parent=main_widget,
+        )
         btn_open.clicked.connect(slot=self.open_video)
 
-        self.btn_track = QPushButton(text="Track Video", parent=main_widget)
+        self.btn_track = QPushButton(
+            text="Track (Ctrl+T)",
+            parent=main_widget,
+        )
         self.btn_track.clicked.connect(slot=self.run_tracking)
         self.btn_track.setEnabled(False)
+
+        btn_save = QPushButton(
+            text="Save CSV (Ctrl+S)",
+            parent=main_widget,
+        )
+        btn_save.clicked.connect(slot=self.save_results_to_csv)
+
+        btn_load = QPushButton(
+            text="Load CSV (Ctrl+L)",
+            parent=main_widget,
+        )
+        btn_load.clicked.connect(slot=self.load_results_from_csv)
 
         self.points_input = QSpinBox(parent=main_widget)
         self.points_input.setRange(3, 500)
@@ -117,6 +147,8 @@ class SnakeGUI(QMainWindow):
 
         toolbar.addWidget(btn_open)
         toolbar.addWidget(self.btn_track)
+        toolbar.addWidget(btn_save)
+        toolbar.addWidget(btn_load)
         toolbar.addWidget(QLabel(text="Spline Points:"))
         toolbar.addWidget(self.points_input)
         layout.addLayout(toolbar)
@@ -124,6 +156,7 @@ class SnakeGUI(QMainWindow):
         # 2. Frame Navigation Slider
         self.slider = QSlider(orientation=Qt.Orientation.Horizontal)
         self.slider.setEnabled(False)
+        self.slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.slider.valueChanged.connect(slot=self.on_slider_change)
         layout.addWidget(self.slider)
 
@@ -147,6 +180,86 @@ class SnakeGUI(QMainWindow):
             s="button_release_event",
             func=self.on_mouse_release
         )
+
+    def _init_shortcuts(self) -> None:
+        """
+        Initialize application-wide keyboard shortcuts.
+
+        Binds key sequences (like Ctrl+O, Ctrl+S) to their
+        respective class methods to improve user efficiency.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui._init_shortcuts()
+        """
+        # Bind application exit to Ctrl+Q and Ctrl+W
+        shortcut_quit = QShortcut(QKeySequence("Ctrl+Q"), self)
+        shortcut_quit.activated.connect(slot=self.close)
+
+        shortcut_close = QShortcut(QKeySequence("Ctrl+W"), self)
+        shortcut_close.activated.connect(slot=self.close)
+
+        # Bind file opening and tracking actions
+        shortcut_open = QShortcut(QKeySequence("Ctrl+O"), self)
+        shortcut_open.activated.connect(slot=self.open_video)
+
+        shortcut_track = QShortcut(QKeySequence("Ctrl+T"), self)
+        shortcut_track.activated.connect(slot=self.run_tracking)
+
+        # Bind CSV input/output actions
+        shortcut_save = QShortcut(QKeySequence("Ctrl+S"), self)
+        shortcut_save.activated.connect(slot=self.save_results_to_csv)
+
+        shortcut_load = QShortcut(QKeySequence("Ctrl+L"), self)
+        shortcut_load.activated.connect(slot=self.load_results_from_csv)
+
+    def keyPressEvent(self, event: Any) -> None:
+        """
+        Handle key press events for the main window.
+
+        Specifically overrides default behavior to allow
+        Left and Right arrow keys to step backward and
+        forward through the video frames.
+
+        Parameters
+        ----------
+        event : PyQt6.QtGui.QKeyEvent
+            The key press event captured by the GUI.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # This method is called automatically by PyQt6
+        >>> # when a user presses a key.
+        """
+        # Ignore arrow keys if no video is loaded
+        if not self.slider.isEnabled():
+            return
+
+        # Move to the previous frame on Left Arrow
+        if event.key() == Qt.Key.Key_Left:
+            new_val = max(0, self.slider.value() - 1)
+            self.slider.setValue(value=new_val)
+
+        # Move to the next frame on Right Arrow
+        elif event.key() == Qt.Key.Key_Right:
+            new_val = min(
+                self.slider.maximum(),
+                self.slider.value() + 1,
+            )
+            self.slider.setValue(value=new_val)
+
+        # Propagate all other keystrokes up the inheritance chain
+        else:
+            super().keyPressEvent(event)
 
     def open_video(self) -> None:
         """
@@ -381,6 +494,137 @@ class SnakeGUI(QMainWindow):
 
         egrad: np.ndarray = 1.0 - grad_mag
         return np.ascontiguousarray(a=egrad)
+
+    def save_results_to_csv(self) -> None:
+        """
+        Export tracked anchor points to a CSV file.
+
+        Iterates over the tracking history and writes the
+        frame index, point ID, and X/Y coordinates to disk.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui.save_results_to_csv()
+        """
+        # Ensure there is actually data to save
+        if not self.anchors_history:
+            QMessageBox.warning(
+                parent=self,
+                title="Warning",
+                text="No tracking data to save.",
+            )
+            return
+
+        # Prompt user for a save location
+        file_path, _ = QFileDialog.getSaveFileName(
+            parent=self,
+            caption="Save Tracking Results",
+            directory="",
+            filter="CSV Files (*.csv)",
+        )
+
+        # Abort if the user canceled the dialog
+        if not file_path:
+            return
+
+        try:
+            # Write the tracking history to the selected file
+            with open(file=file_path, mode="w", newline="") as f:
+                writer = csv.writer(f)
+
+                # Write the header row
+                writer.writerow(["frame", "point_id", "x", "y"])
+
+                # Sort keys to ensure chronological order in CSV
+                for frame_idx in sorted(self.anchors_history.keys()):
+                    pts = self.anchors_history[frame_idx]
+                    for i, (x, y) in enumerate(pts):
+                        writer.writerow([frame_idx, i, x, y])
+
+            QMessageBox.information(
+                self,
+                title="Success",
+                text=f"Results saved to {file_path}",
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                title="Error",
+                text=f"Failed to save CSV: {e}",
+            )
+
+    def load_results_from_csv(self) -> None:
+        """
+        Import tracked anchor points from a CSV file.
+
+        Reads a previously saved CSV file and restores the
+        tracking history into the application state. Updates
+        the current view if data exists for the current frame.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui.load_results_from_csv()
+        """
+        # Prompt user to select a CSV file
+        file_path, _ = QFileDialog.getOpenFileName(
+            parent=self,
+            caption="Load Tracking Results",
+            directory="",
+            filter="CSV Files (*.csv)",
+        )
+
+        # Abort if the user canceled the dialog
+        if not file_path:
+            return
+
+        try:
+            new_history: dict[int, list[list[float]]] = {}
+
+            # Read the CSV and reconstruct the history dictionary
+            with open(file=file_path, mode="r", newline="") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    frame = int(row["frame"])
+                    x = float(row["x"])
+                    y = float(row["y"])
+
+                    if frame not in new_history:
+                        new_history[frame] = []
+                    new_history[frame].append([x, y])
+
+            # Apply the loaded history to the current state
+            self.anchors_history = new_history
+
+            # Update the UI if data covers the currently viewed frame
+            if self.current_frame_idx in self.anchors_history:
+                # Extract coordinates from the active frame
+                pts = self.anchors_history[self.current_frame_idx]
+                self.anchors = [list(pt) for pt in pts]
+
+                # Render the updated spline
+                self._update_spline()
+
+            QMessageBox.information(
+                parent=self,
+                title="Success",
+                text="Results loaded successfully.",
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                parent=self,
+                title="Error",
+                text=f"Failed to load CSV: {e}",
+            )
 
     def run_tracking(self) -> None:
         """
