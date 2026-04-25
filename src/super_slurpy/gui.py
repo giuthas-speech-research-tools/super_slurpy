@@ -707,19 +707,20 @@ class SlurpyGui(QMainWindow):
             self.model.anchors.clear()
             self.model.update_spline()
             self._display_canvas()
+            self.action_resample.setEnabled(False)
             return
 
         closest_idx: int | None = self._get_closest_anchor(
             x=event.xdata, y=event.ydata
         )
 
-        # What: Handle right-click deletions.
-        # Why: Standard UI pattern for point removal.
         if event.button == 3:
             if closest_idx is not None:
                 self.model.anchors.pop(closest_idx)
                 self.model.update_spline()
                 self._display_canvas()
+            if len(self.model.anchors) < 2:
+                self.action_resample.setEnabled(False)
             return
 
         # What: Handle left-click additions and drag initiation.
@@ -731,6 +732,8 @@ class SlurpyGui(QMainWindow):
                 self.model.anchors.append([event.xdata, event.ydata])
                 self.model.update_spline()
                 self._display_canvas()
+            if len(self.model.anchors) >= 2:
+                self.action_resample.setEnabled(True)
 
     def on_mouse_motion(self, event: Any) -> None:
         """
