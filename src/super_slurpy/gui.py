@@ -112,14 +112,14 @@ class SnakeGUI(QMainWindow):
         self.setCentralWidget(main_widget)
         layout = QVBoxLayout(main_widget)
 
-        # 1. Toolbar Setup
+        # Toolbar setup
         toolbar = QHBoxLayout()
 
-        btn_open = QPushButton(
+        self.btn_open = QPushButton(
             text="Open Video (Ctrl+O)",
             parent=main_widget,
         )
-        btn_open.clicked.connect(slot=self.open_video)
+        self.btn_open.clicked.connect(slot=self.open_video)
 
         self.btn_track = QPushButton(
             text="Track (Ctrl+T)",
@@ -128,46 +128,57 @@ class SnakeGUI(QMainWindow):
         self.btn_track.clicked.connect(slot=self.run_tracking)
         self.btn_track.setEnabled(False)
 
-        btn_save = QPushButton(
+        self.btn_save = QPushButton(
             text="Save CSV (Ctrl+S)",
             parent=main_widget,
         )
-        btn_save.clicked.connect(slot=self.save_results_to_csv)
+        self.btn_save.clicked.connect(slot=self.save_results_to_csv)
 
-        btn_load = QPushButton(
+        self.btn_load = QPushButton(
             text="Load CSV (Ctrl+L)",
             parent=main_widget,
         )
-        btn_load.clicked.connect(slot=self.load_results_from_csv)
+        self.btn_load.clicked.connect(slot=self.load_results_from_csv)
 
         self.points_input = QSpinBox(parent=main_widget)
         self.points_input.setRange(3, 500)
         self.points_input.setValue(DEFAULT_SPLINE_POINTS)
         self.points_input.valueChanged.connect(slot=self._update_spline)
 
-        toolbar.addWidget(btn_open)
+        toolbar.addWidget(self.btn_open)
         toolbar.addWidget(self.btn_track)
-        toolbar.addWidget(btn_save)
-        toolbar.addWidget(btn_load)
+        toolbar.addWidget(self.btn_save)
+        toolbar.addWidget(self.btn_load)
         toolbar.addWidget(QLabel(text="Spline Points:"))
         toolbar.addWidget(self.points_input)
         layout.addLayout(toolbar)
 
-        # 2. Frame Navigation Slider
+        # Frame navigation slider
         self.slider = QSlider(orientation=Qt.Orientation.Horizontal)
         self.slider.setEnabled(False)
-        self.slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.slider.valueChanged.connect(slot=self.on_slider_change)
         layout.addWidget(self.slider)
 
-        # 3. Matplotlib Canvas Integration
-        self.fig = Figure(figsize=(8, 6))
-        self.canvas = FigureCanvasQTAgg(figure=self.fig)
-        self.ax = self.fig.add_subplot(111)
+        # Create the Matplotlib figure and canvas for video display
+        self.figure = Figure()
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.ax = self.figure.add_subplot(111)
+
+        # Remove all margins and padding around the axes to ensure the
+        # image fills the canvas widget as much as possible.
+        self.figure.subplots_adjust(
+            left=0,
+            right=1,
+            bottom=0,
+            top=1,
+            wspace=0,
+            hspace=0
+        )
+
         self.ax.set_axis_off()
         layout.addWidget(self.canvas)
 
-        # 4. Connect Matplotlib interactive events
+        # Connect Matplotlib interactive events
         self.canvas.mpl_connect(
             s="button_press_event",
             func=self.on_mouse_press
@@ -180,6 +191,13 @@ class SnakeGUI(QMainWindow):
             s="button_release_event",
             func=self.on_mouse_release
         )
+
+        # Disable focus on buttons and such in favour of using the arrow keys
+        # for navigating frames.
+        self.slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_load.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_track.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_save.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def _init_shortcuts(self) -> None:
         """
@@ -217,6 +235,55 @@ class SnakeGUI(QMainWindow):
 
         shortcut_load = QShortcut(QKeySequence("Ctrl+L"), self)
         shortcut_load.activated.connect(slot=self.load_results_from_csv)
+
+        # Initialize keyboard shortcuts for frame navigation.
+        # WindowShortcut context ensures these work even when
+        # buttons or toolbars have focus.
+        shortcut_left_key = QShortcut(
+            QKeySequence(Qt.Key.Key_Left),
+            self
+        )
+        shortcut_left_key.activated.connect(self._prev_frame)
+
+        shortcut_right_key = QShortcut(
+            QKeySequence(Qt.Key.Key_Right),
+            self
+        )
+        shortcut_right_key.activated.connect(self._next_frame)
+
+    def _next_frame(self) -> None:
+        """
+        Advance the slider to the next frame index.
+
+        Returns
+        -------
+        None
+        """
+        # Block manual navigation during automated tracking sequences
+        if self._is_tracking:
+            return
+
+        current_val: int = self.slider.value()
+        if current_val < self.slider.maximum():
+            # Slider signal will automatically trigger frame rendering
+            self.slider.setValue(current_val + 1)
+
+    def _prev_frame(self) -> None:
+        """
+        Move the slider back to the previous frame index.
+
+        Returns
+        -------
+        None
+        """
+        # Block manual navigation during automated tracking sequences
+        if self._is_tracking:
+            return
+
+        current_val: int = self.slider.value()
+        if current_val > self.slider.minimum():
+            # Slider signal will automatically trigger frame rendering
+            self.slider.setValue(current_val - 1)
 
     def keyPressEvent(self, event: Any) -> None:
         """
@@ -411,17 +478,12 @@ class SnakeGUI(QMainWindow):
         """
         Render the video frame, anchors, and spline to the canvas.
 
-        Uses immediate drawing (canvas.draw) to ensure tracking
-        updates are visible on screen in real-time.
+        Uses immediate drawing and removes axis padding to ensure the
+        video frame fills the widget area without cropping.
 
         Returns
         -------
         None
-
-        Examples
-        --------
-        >>> gui = SnakeGUI()
-        >>> gui._display_canvas()
         """
         if self.frame is None:
             return
@@ -430,8 +492,21 @@ class SnakeGUI(QMainWindow):
         self.ax.clear()
         self.ax.set_axis_off()
 
-        # Display the ultrasound frame as the bottom layer
-        self.ax.imshow(X=self.frame)
+        # Get frame dimensions for explicit limit setting
+        height, width = self.frame.shape[:2]
+
+        # Display the ultrasound frame. 'aspect="equal"' preserves the
+        # original ratio while 'extent' aligns pixels to axes coordinates.
+        self.ax.imshow(
+            X=self.frame,
+            aspect="equal",
+            extent=[0, width, height, 0]
+        )
+
+        # Force the axis limits to exactly match the image dimensions
+        # to eliminate any remaining white space/padding.
+        self.ax.set_xlim(0, width)
+        self.ax.set_ylim(height, 0)
 
         # Draw the blue spline contour if calculated
         if self.contour is not None:
@@ -575,31 +650,24 @@ class SnakeGUI(QMainWindow):
         if not file_path:
             return
 
-        try:
-            # Write the tracking history to the selected file
-            with open(file=file_path, mode="w", newline="") as f:
-                writer = csv.writer(f)
+        # Write the tracking history to the selected file
+        with open(file=file_path, mode="w", newline="") as f:
+            writer = csv.writer(f)
 
-                # Write the header row
-                writer.writerow(["frame", "point_id", "x", "y"])
+            # Write the header row
+            writer.writerow(["frame", "point_id", "x", "y"])
 
-                # Sort keys to ensure chronological order in CSV
-                for frame_idx in sorted(self.anchors_history.keys()):
-                    pts = self.anchors_history[frame_idx]
-                    for i, (x, y) in enumerate(pts):
-                        writer.writerow([frame_idx, i, x, y])
+            # Sort keys to ensure chronological order in CSV
+            for frame_idx in sorted(self.anchors_history.keys()):
+                pts = self.anchors_history[frame_idx]
+                for i, (x, y) in enumerate(pts):
+                    writer.writerow([frame_idx, i, x, y])
 
-            QMessageBox.information(
-                self,
-                title="Success",
-                text=f"Results saved to {file_path}",
-            )
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                title="Error",
-                text=f"Failed to save CSV: {e}",
-            )
+        QMessageBox.information(
+            self,
+            title="Success",
+            text=f"Results saved to {file_path}",
+        )
 
     def load_results_from_csv(self) -> None:
         """
