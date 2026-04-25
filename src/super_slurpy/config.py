@@ -69,15 +69,22 @@ class SuperSlurpyConfig(BaseModel):
     snake: SnakeConfig = Field(default_factory=SnakeConfig)
 
 
-def load_config() -> SuperSlurpyConfig:
+def load_config(config_dir: Path | None = None) -> SuperSlurpyConfig:
     """
     Load and validate the YAML configuration file.
 
     This function attempts to find the configuration file in the
     following order of precedence:
-    1. Current working directory (cwd).
-    2. User's home directory under `~/.slurpy/`.
-    3. Bundled package resources via `importlib`.
+    1. The explicitly provided `config_dir` (e.g., video directory).
+    2. Current working directory (cwd).
+    3. User's home directory under `~/.slurpy/`.
+    4. Bundled package resources via `importlib`.
+
+    Parameters
+    ----------
+    config_dir : Path | None, optional
+        A specific directory to check first for the configuration
+        file. Defaults to None.
 
     Returns
     -------
@@ -88,30 +95,33 @@ def load_config() -> SuperSlurpyConfig:
     Examples
     --------
     >>> from super_slurpy.config import load_config
-    >>> config = load_config()
+    >>> from pathlib import Path
+    >>> config = load_config(config_dir=Path("/path/to/data"))
     >>> print(config.gui.proportional_frame)
     0.5
     """
     raw_config: dict[str, Any] = {}
 
-    # Check current working directory
-    cwd_path: Path = Path.cwd() / CONFIG_FILENAME
-    if cwd_path.exists():
-        with open(file=cwd_path, mode="r", encoding="utf-8") as f:
-            # Fallback to empty dict if the file is completely empty
+    # 1. Check explicitly provided directory (e.g., where video is)
+    if config_dir is not None and (config_dir / CONFIG_FILENAME).exists():
+        target_path: Path = config_dir / CONFIG_FILENAME
+        with open(file=target_path, mode="r", encoding="utf-8") as f:
             raw_config = yaml.safe_load(stream=f) or {}
 
-    # Check user's home directory
+    # 2. Check current working directory
+    elif (Path.cwd() / CONFIG_FILENAME).exists():
+        cwd_path: Path = Path.cwd() / CONFIG_FILENAME
+        with open(file=cwd_path, mode="r", encoding="utf-8") as f:
+            raw_config = yaml.safe_load(stream=f) or {}
+
+    # 3. Check user's home directory
     elif (Path.home() / USER_DIR_NAME / CONFIG_FILENAME).exists():
         user_path: Path = Path.home() / USER_DIR_NAME / CONFIG_FILENAME
         with open(file=user_path, mode="r", encoding="utf-8") as f:
             raw_config = yaml.safe_load(stream=f) or {}
 
-    # 3. Check package resources a.k.a. importlib.resources
+    # 4. Check package resources a.k.a. importlib.resources
     else:
-        # try:
-        # try commented out because missing files should crash the
-        # program rather than 'fail gracefully'
         resource_path = importlib.resources.files(
             anchor="super_slurpy"
         ) / CONFIG_FILENAME
@@ -121,9 +131,5 @@ def load_config() -> SuperSlurpyConfig:
                 encoding="utf-8"
             )
             raw_config = yaml.safe_load(stream=content) or {}
-
-        # except (ModuleNotFoundError, FileNotFoundError):
-        #     # Fail gracefully if the package structure is unexpected
-        #     pass
 
     return SuperSlurpyConfig(**raw_config)

@@ -7,69 +7,42 @@ graphical user interface (GUI).
 """
 
 import sys
+from pathlib import Path
 
 import click
 
-# Adhering to separation of responsibilities by importing
-# shared configuration and constants from a dedicated module.
 from super_slurpy.constants import EXIT_MISSING_DEPS, GUI_MISSING_ERR_MSG
+from super_slurpy.model import SlurpyModel
 
 
 @click.group()
 def run_cli() -> None:
     """
     Super-Slurpy: CLI and GUI for Python version of SLURP.
-
-    This function acts as the main Click command group that
-    binds all subcommands together.
-
-    Returns
-    -------
-    None
-
-    Examples
-    --------
-    >>> from super_slurpy.cli import run_cli
-    >>> # Typically invoked via command line:
-    >>> # $ slurpy --help
     """
-    # The group function serves only as a router for Click
-    # subcommands. Therefore, no execution logic is needed here.
     pass
 
 
 @run_cli.command()
-def gui() -> None:
+@click.option(
+    "--ultrasound",
+    "-u",
+    type=click.Path(exists=True),
+    help="Path to a video file to open automatically.",
+)
+@click.option(
+    "--seed",
+    "-s",
+    type=click.Path(exists=True),
+    help="Path to a seed spline CSV file to load automatically.",
+)
+def gui(ultrasound: str | None, seed: str | None) -> None:
     """
     Launch the interactive PyQt GUI.
-
-    Attempts to load optional GUI dependencies and launch the
-    main application window. Gracefully alerts the user if
-    dependencies are not installed.
-
-    Returns
-    -------
-    None
-
-    Raises
-    ------
-    SystemExit
-        Exits with an error code if required `[gui]` dependencies
-        are missing.
-
-    Examples
-    --------
-    >>> # Invoked via command line:
-    >>> # $ slurpy gui
     """
-    # We use a try-except block and a local, inline import here.
-    # Why: This prevents an automatic `ImportError` from crashing
-    # the entire CLI for headless users who skipped the GUI extras.
     try:
         from super_slurpy.gui import launch_gui
     except ImportError:
-        # Use keyword arguments to print the centralized error
-        # message in red and exit gracefully.
         click.secho(
             message=GUI_MISSING_ERR_MSG,
             fg="red",
@@ -77,36 +50,67 @@ def gui() -> None:
         )
         sys.exit(EXIT_MISSING_DEPS)
 
-    # Acknowledge the launch using keyword arguments.
     click.echo(message="Starting GUI...")
-    launch_gui()
+    launch_gui(video_path=ultrasound, seed_path=seed)
 
 
 @run_cli.command()
-@click.argument("input_path")
-def process(input_path: str) -> None:
+@click.argument("input_path", type=click.Path(exists=True))
+@click.option(
+    "--seed",
+    "-s",
+    type=click.Path(exists=True),
+    help="Path to the seed spline CSV file.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    help="Output CSV path. Defaults to input_path with _tracked.csv suffix.",
+)
+def process(input_path: str, seed: str | None, output: str | None) -> None:
     """
     Batch process a file in headless mode.
-
-    Processes a given input file without launching the GUI.
-    Suitable for scripting and background tasks.
-
-    Parameters
-    ----------
-    input_path : str
-        The file path pointing to the data to be processed.
-
-    Returns
-    -------
-    None
-
-    Examples
-    --------
-    >>> # Invoked via command line:
-    >>> # $ slurpy process /path/to/data.ext
     """
-    # Print the initialization status. Keyword arguments are
-    # used explicitly per project guidelines.
-    click.echo(
-        message=f"Processing {input_path} in headless mode..."
-    )
+    click.echo(message=f"Processing {input_path} in headless mode...")
+
+    video_path = Path(input_path)
+    # Prefer config file in the same directory as the video
+    model = SlurpyModel(config_dir=video_path.parent)
+
+    if seed:
+        try:
+            model.load_seed_spline_file(file_path=seed)
+        except Exception as e:
+            click.secho(message=f"Error loading seed: {e}", fg="red", err=True)
+            sys.exit(1)
+
+    if not model.seed_spline:
+        click.secho(
+            message="Error: A seed spline is required for batch processing.",
+            fg="red",
+            err=True,
+        )
+        sys.exit(1)
+
+    try:
+        start_frame = model.open_video(file_path=input_path)
+
+        # Apply the seed spline to the starting frame
+        model.anchors = [list(pt) for pt in model.seed_spline]
+        model.read_frame(frame_idx=start_frame)
+        model.update_spline()
+
+        click.echo(message=f"Starting tracking from frame {start_frame}...")
+        model.run_tracking(start_idx=start_frame)
+
+        out_path = output if output else str(
+            video_path.with_name(f"{video_path.stem}_tracked.csv"))
+        model.save_csv(file_path=out_path)
+        click.secho(
+            message=f"Successfully saved results to {out_path}", fg="green")
+
+    except Exception as e:
+        click.secho(
+            message=f"Error during processing: {e}", fg="red", err=True)
+        sys.exit(1)
