@@ -28,12 +28,12 @@ class GuiConfig(BaseModel):
         The absolute frame number to start on, defaults to None.
     proportional_frame : float | None
         The proportional position to start on (0.0 to 1.0), defaults to 0.5.
-    default_spline_file : str | None
-        Path or filename of the default spline resource, defaults to None.
+    seed_spline_file : str | None
+        Path or filename of the seed spline file, defaults to None.
     """
     default_frame: int | None = None
     proportional_frame: float | None = 0.5
-    default_spline_file: str | None = None
+    seed_spline_file: str | None = None
 
 
 class SnakeConfig(BaseModel):

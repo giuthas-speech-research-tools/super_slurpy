@@ -8,6 +8,7 @@ management (add, drag, delete, clear) with real-time splines.
 """
 
 import csv
+import importlib.resources
 import sys
 from typing import Any
 
@@ -97,6 +98,10 @@ class SnakeGUI(QMainWindow):
         self._drag_idx: int | None = None
         self._is_tracking: bool = False
 
+        # State management for seed spline
+        self.seed_spline: list[list[float]] | None = None
+
+        self._load_initial_seed_spline()
         self._init_ui()
         self._init_menus()
 
@@ -225,7 +230,7 @@ class SnakeGUI(QMainWindow):
         action_save_spline = QAction(
             text="&Save current spline as default", parent=self
         )
-        action_save_spline.triggered.connect(slot=self.save_default_spline)
+        action_save_spline.triggered.connect(slot=self.save_seed_spline)
         file_menu.addAction(action_save_spline)
 
         file_menu.addSeparator()
@@ -257,6 +262,28 @@ class SnakeGUI(QMainWindow):
         self.action_resample.setEnabled(False)
         action_menu.addAction(self.action_resample)
 
+        action_menu.addSeparator()
+
+        self.action_apply_seed = QAction(
+            text="&Apply seed spline", parent=self
+        )
+        self.action_apply_seed.triggered.connect(
+            slot=self.apply_seed_spline
+        )
+        # Enable only if a seed spline is actually cached in memory
+        self.action_apply_seed.setEnabled(
+            self.seed_spline is not None
+        )
+        action_menu.addAction(self.action_apply_seed)
+
+        self.action_clear_splines = QAction(
+            text="&Clear All Splines", parent=self
+        )
+        self.action_clear_splines.triggered.connect(
+            slot=self.clear_all_splines
+        )
+        action_menu.addAction(self.action_clear_splines)
+
         # Navigation menu setup
         nav_menu = menu_bar.addMenu("&Navigation")
 
@@ -269,6 +296,47 @@ class SnakeGUI(QMainWindow):
         action_next.setShortcut(QKeySequence(Qt.Key.Key_Right))
         action_next.triggered.connect(slot=self._next_frame)
         nav_menu.addAction(action_next)
+
+    def _load_initial_seed_spline(self) -> None:
+        """
+        Attempt to load the seed spline from package resources.
+
+        Reads the configured filename from importlib.resources and
+        stores it in application state to be applied to new videos.
+
+        Returns
+        -------
+        None
+        """
+        filename: str | None = self.config.gui.seed_spline_file
+        if not filename:
+            return
+
+        try:
+            resource_path = importlib.resources.files(
+                anchor="super_slurpy"
+            ) / filename
+
+            if resource_path.is_file():
+                content: str = resource_path.read_text(encoding="utf-8")
+                reader = csv.reader(content.splitlines())
+                header = next(reader, None)
+
+                # Strictly validate against the expected file format
+                if header != ["point_id", "x", "y"]:
+                    return
+
+                pts: list[list[float]] = []
+                for row in reader:
+                    if len(row) == 3:
+                        pts.append([float(row[1]), float(row[2])])
+
+                if pts:
+                    self.seed_spline = pts
+
+        except Exception as e:
+            # Log non-fatally; the user can still operate the GUI
+            print(f"Warning: Failed to load package seed spline: {e}")
 
     def _next_frame(self) -> None:
         """
@@ -308,7 +376,7 @@ class SnakeGUI(QMainWindow):
         """
         Handle key press events for the main window.
 
-        Specifically overrides default behavior to allow
+        Specifically overrides seed behavior to allow
         Left and Right arrow keys to step backward and
         forward through the video frames.
 
@@ -393,6 +461,11 @@ class SnakeGUI(QMainWindow):
 
         # Load and render the calculated starting frame
         self._read_and_display_frame(frame_idx=start_frame)
+
+        # Apply the seed spline if available and no history exists
+        if self.seed_spline and not self.anchors_history:
+            self.anchors = [list(pt) for pt in self.seed_spline]
+            self._update_spline()
 
     def _read_and_display_frame(self, frame_idx: int) -> None:
         """
@@ -949,9 +1022,9 @@ class SnakeGUI(QMainWindow):
             f"Success: Resampled splines to {num_points} control points.", 5000
         )
 
-    def save_default_spline(self) -> None:
+    def save_seed_spline(self) -> None:
         """
-        Save the currently active anchors as a default spline CSV.
+        Save the currently active anchors as a seed spline CSV.
 
         Returns
         -------
@@ -960,7 +1033,7 @@ class SnakeGUI(QMainWindow):
         Examples
         --------
         >>> gui = SnakeGUI()
-        >>> gui.save_default_spline()
+        >>> gui.save_seed_spline()
         """
         if not self.anchors:
             self.statusBar().showMessage("Warning: No spline to save.", 5000)
@@ -968,7 +1041,7 @@ class SnakeGUI(QMainWindow):
 
         file_path, _ = QFileDialog.getSaveFileName(
             parent=self,
-            caption="Save Default Spline",
+            caption="Save seed spline",
             directory="",
             filter="CSV Files (*.csv)",
         )
@@ -988,9 +1061,9 @@ class SnakeGUI(QMainWindow):
             )
         except Exception as e:
             QMessageBox.critical(
-                parent=self,
-                title="Error",
-                text=f"Failed to save spline: {e}",
+                self,
+                "Error",
+                f"Failed to save spline: {e}",
             )
 
     def load_seed_spline(self) -> None:
@@ -1007,7 +1080,7 @@ class SnakeGUI(QMainWindow):
         Examples
         --------
         >>> gui = SnakeGUI()
-        >>> gui.load_default_spline()
+        >>> gui.load_seed_spline()
         """
         # Warn user if they are about to lose active data
         if self.anchors_history:
@@ -1056,23 +1129,103 @@ class SnakeGUI(QMainWindow):
             self.anchors = new_anchors
             self.anchors_history.clear()
 
+            # Save as the app's persistent seed spline for new videos
+            self.seed_spline = [list(pt) for pt in new_anchors]
+
             # Save the freshly loaded spline to the current frame index
             self.anchors_history[self.current_frame_idx] = [
                 list(pt) for pt in self.anchors
             ]
 
+            # Enable the apply action now that a seed is cached
+            if hasattr(self, "action_apply_default"):
+                self.action_apply_seed.setEnabled(True)
+
             self._update_spline()
             self.statusBar().showMessage(
-                "Success: Default spline loaded.", 5000
+                "Success: Seed spline loaded.", 5000
             )
 
         except Exception as e:
             # Catch format errors informatively
             QMessageBox.critical(
-                parent=self,
-                title="Format Error",
-                text=f"Failed to load spline correctly.\n\n{e}",
+                self,
+                "Format Error",
+                f"Failed to load spline correctly.\n\n{e}",
             )
+
+    def apply_seed_spline(self) -> None:
+        """
+        Apply the currently cached seed spline to the active video.
+
+        Discards existing tracking data after user confirmation.
+
+        Returns
+        -------
+        None
+        """
+        if self.seed_spline is None:
+            return
+
+        if self.anchors_history:
+            reply = QMessageBox.question(
+                self,
+                "Confirm Apply",
+                "Applying the seed spline will discard all "
+                "current tracking data. Proceed?",
+                buttons=(
+                    QMessageBox.StandardButton.Yes |
+                    QMessageBox.StandardButton.No
+                ),
+                defaultButton=QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        # Restore from the cached seed and reset history
+        self.anchors = [list(pt) for pt in self.seed_spline]
+        self.anchors_history.clear()
+
+        self.anchors_history[self.current_frame_idx] = [
+            list(pt) for pt in self.anchors
+        ]
+
+        self._update_spline()
+        self.statusBar().showMessage(
+            "Success: Seed spline applied.", 5000
+        )
+
+    def clear_all_splines(self) -> None:
+        """
+        Clear all anchor points and history from the application.
+
+        Asks for user confirmation before discarding data.
+
+        Returns
+        -------
+        None
+        """
+        if self.anchors_history:
+            reply = QMessageBox.question(
+                self,
+                "Confirm Clear",
+                "This will discard all tracking data. Proceed?",
+                buttons=(
+                    QMessageBox.StandardButton.Yes |
+                    QMessageBox.StandardButton.No
+                ),
+                defaultButton=QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        # Wipe out all current state
+        self.anchors.clear()
+        self.anchors_history.clear()
+        self.contour = None
+
+        self._display_canvas()
+        self.statusBar().showMessage("Success: All splines cleared.", 5000)
 
 
 def launch_gui() -> None:
