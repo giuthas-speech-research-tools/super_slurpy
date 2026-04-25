@@ -9,7 +9,7 @@ GUI, allowing it to be used in headless batch processing.
 import csv
 import importlib.resources
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import av
 import numpy as np
@@ -341,21 +341,14 @@ class SlurpyModel:
         egrad: np.ndarray = 1.0 - grad_mag
         return np.ascontiguousarray(a=egrad)
 
-    def process_frame(self, frame_idx: int) -> None:
+    def _process_frame_snake(self, frame_idx: int) -> None:
         """
-        Run snake optimization for a single frame.
+        Internal helper to run snake optimization for a single frame.
 
         Parameters
         ----------
         frame_idx : int
             The targeted frame index.
-
-        Examples
-        --------
-        >>> model = SlurpyModel()
-        >>> model.open_video(file_path="video.mp4")
-        >>> model.anchors = [[0.0, 0.0], [10.0, 10.0]]
-        >>> model.process_frame(frame_idx=10)
         """
         self.read_frame(frame_idx=frame_idx)
         if self.frame is None or not self.anchors:
@@ -400,21 +393,70 @@ class SlurpyModel:
         self.anchors = current_pts.tolist()
         self.update_spline()
 
-    def run_tracking(self, start_idx: int) -> None:
+    def _process_frame_particle(
+        self, frame_idx: int, base_anchors: list[list[float]]
+    ) -> list[list[float]]:
         """
-        Run tracking forward and backward from a starting frame.
+        Internal helper to run particle filter for a single frame.
+
+        Parameters
+        ----------
+        frame_idx : int
+            The targeted frame index.
+        base_anchors : list[list[float]]
+            The prior contour to base predictions on.
+
+        Returns
+        -------
+        list[list[float]]
+            The resulting optimized points.
+        """
+        from super_slurpy.motion import run_particle_filter
+
+        self.read_frame(frame_idx=frame_idx)
+        if self.frame is None or not base_anchors:
+            return base_anchors
+
+        num_particles = self.config.particle.num_particles
+        noise_scale = self.config.particle.noise_scale
+
+        base_contour = np.array(object=base_anchors, dtype=np.float64)
+
+        # What: Generate particle hypotheses and fit the contour.
+        # Why: Seeds the evaluation pool for contour fitting.
+        particles = run_particle_filter(
+            base_contour=base_contour,
+            num_particles=num_particles,
+            noise_scale=noise_scale,
+        )
+
+        # What: Assign the best particle to the current frame.
+        # Why: Progresses the tracking sequence.
+        best_particle = particles[0]
+        self.anchors = best_particle.tolist()
+        self.update_spline()
+
+        return self.anchors
+
+    def run_snake_tracking(self, start_idx: int) -> Iterator[int]:
+        """
+        Run snake tracking forward and backward from a starting frame.
 
         Parameters
         ----------
         start_idx : int
             The original initialization frame index.
 
+        Yields
+        ------
+        int
+            The frame index currently being processed.
+
         Examples
         --------
         >>> model = SlurpyModel()
-        >>> model.open_video(file_path="video.mp4")
         >>> model.anchors = [[0.0, 0.0], [10.0, 10.0]]
-        >>> model.run_tracking(start_idx=0)
+        >>> list(model.run_snake_tracking(start_idx=0))
         """
         if not self.anchors or self.container is None:
             return
@@ -423,7 +465,8 @@ class SlurpyModel:
 
         # Forward Pass evaluation loop
         for frame_idx in range(start_idx + 1, self.total_frames):
-            self.process_frame(frame_idx=frame_idx)
+            self._process_frame_snake(frame_idx=frame_idx)
+            yield frame_idx
 
         # Reset State and anchor data back to target zero
         self.anchors = [list(a) for a in init_anchors]
@@ -432,64 +475,89 @@ class SlurpyModel:
 
         # Backward Pass evaluation loop
         for frame_idx in range(start_idx - 1, -1, -1):
-            self.process_frame(frame_idx=frame_idx)
+            self._process_frame_snake(frame_idx=frame_idx)
+            yield frame_idx
 
-    def run_particle_tracking(self, start_frame: int) -> None:
+    def run_particle_tracking(self, start_idx: int) -> Iterator[int]:
         """
-        Execute particle filter tracking from a starting frame.
+        Execute particle filter tracking across the entire video.
 
         Parameters
         ----------
-        start_frame : int
+        start_idx : int
             The index of the frame to begin tracking from.
-        """
-        # What: Import locally to avoid circular dependencies.
-        # Why: motion module relies on external dependencies.
-        from super_slurpy.motion import run_particle_filter
 
-        num_particles = self.config.particle.num_particles
-        noise_scale = self.config.particle.noise_scale
-
-        if start_frame not in self.anchors_history:
-            return
-
-        base_anchors = np.array(object=self.anchors_history[start_frame])
-
-        # What: Generate particle hypotheses.
-        # Why: Seeds the next frame's evaluation pool.
-        particles = run_particle_filter(
-            base_contour=base_anchors,
-            num_particles=num_particles,
-            noise_scale=noise_scale,
-        )
-
-        # What: Assign the best particle to the next frame.
-        # Why: Progresses the tracking sequence.
-        # Note: Energy evaluation integration omitted for brevity.
-        best_particle = particles[0]
-        self.anchors_history[start_frame + 1] = best_particle.tolist()
-
-    def track_current_frame(self) -> None:
-        """
-        Run tracking on the current frame only.
-
-        Uses existing anchors if present; otherwise, falls back to
-        the loaded seed spline.
+        Yields
+        ------
+        int
+            The frame index currently being processed.
 
         Examples
         --------
         >>> model = SlurpyModel()
-        >>> model.open_video(file_path="video.mp4")
-        >>> model.track_current_frame()
+        >>> list(model.run_particle_tracking(start_idx=10))
+        """
+        if not self.anchors or self.container is None:
+            return
+
+        init_anchors: list[list[float]] = [list(a) for a in self.anchors]
+        current_anchors: list[list[float]] = [list(a) for a in self.anchors]
+
+        # Forward Pass
+        for frame_idx in range(start_idx + 1, self.total_frames):
+            current_anchors = self._process_frame_particle(
+                frame_idx=frame_idx, base_anchors=current_anchors
+            )
+            yield frame_idx
+
+        # Reset State and anchor data back to target zero
+        self.anchors = [list(a) for a in init_anchors]
+        self.read_frame(frame_idx=start_idx)
+        self.update_spline()
+
+        # Backward Pass
+        current_anchors = [list(a) for a in init_anchors]
+        for frame_idx in range(start_idx - 1, -1, -1):
+            current_anchors = self._process_frame_particle(
+                frame_idx=frame_idx, base_anchors=current_anchors
+            )
+            yield frame_idx
+
+    def track_current_frame_snake(self) -> None:
+        """
+        Run snake tracking on the current frame only.
+
+        Examples
+        --------
+        >>> model = SlurpyModel()
+        >>> model.track_current_frame_snake()
         """
         if not self.anchors:
             if self.seed_spline:
                 self.anchors = [list(pt) for pt in self.seed_spline]
             else:
-                # No anchors and no seed available to start from
                 return
 
-        self.process_frame(frame_idx=self.current_frame_idx)
+        self._process_frame_snake(frame_idx=self.current_frame_idx)
+
+    def track_current_frame_particle(self) -> None:
+        """
+        Run particle tracking on the current frame only.
+
+        Examples
+        --------
+        >>> model = SlurpyModel()
+        >>> model.track_current_frame_particle()
+        """
+        if not self.anchors:
+            if self.seed_spline:
+                self.anchors = [list(pt) for pt in self.seed_spline]
+            else:
+                return
+
+        self._process_frame_particle(
+            frame_idx=self.current_frame_idx, base_anchors=self.anchors
+        )
 
     def save_csv(self, file_path: str) -> None:
         """

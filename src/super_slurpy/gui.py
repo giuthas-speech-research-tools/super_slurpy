@@ -125,20 +125,33 @@ class SlurpyGui(QMainWindow):
         )
         self.btn_open.clicked.connect(slot=self.open_video)
 
-        self.btn_track = QPushButton(
-            text="Track (Ctrl+T)", parent=main_widget
+        self.btn_track_snake = QPushButton(
+            text="Snake track (Ctrl+T)", parent=main_widget
         )
-        self.btn_track.clicked.connect(slot=self.run_snake_tracking)
-        self.btn_track.setEnabled(False)
+        self.btn_track_snake.clicked.connect(slot=self.run_snake_tracking)
+        self.btn_track_snake.setEnabled(False)
 
-        self.btn_track_curr = QPushButton(
-            text="Track this frame (Ctrl+F)", parent=main_widget
+        self.btn_track_curr_snake = QPushButton(
+            text="Snake track this frame (Alt+T)", parent=main_widget
         )
-        self.btn_track_curr.clicked.connect(
-            slot=self.track_current_frame_action
+        self.btn_track_curr_snake.clicked.connect(
+            slot=self.track_current_frame_snake
         )
-        self.btn_track_curr.setEnabled(False)
-        self.btn_track_curr.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_track_curr_snake.setEnabled(False)
+        self.btn_track_curr_snake.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+        self.btn_track_particle = QPushButton("Particle track (Ctrl+P)")
+        self.btn_track_particle.setEnabled(False)
+        self.btn_track_particle.clicked.connect(self.run_particle_tracking)
+
+        self.btn_track_curr_particle = QPushButton(
+            text="Particle track this frame (Alt+P)", parent=main_widget
+        )
+        self.btn_track_curr_particle.clicked.connect(
+            slot=self.track_current_frame_particle
+        )
+        self.btn_track_curr_particle.setEnabled(False)
+        self.btn_track_curr_particle.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         self.btn_save = QPushButton(
             text="Save CSV (Ctrl+S)", parent=main_widget
@@ -150,14 +163,11 @@ class SlurpyGui(QMainWindow):
         )
         self.btn_load.clicked.connect(slot=self.load_results_from_csv)
 
-        self.btn_track_particle = QPushButton("Track particle (Ctrl+P)")
-        self.btn_track_particle.setEnabled(False)
-        self.btn_track_particle.clicked.connect(self.run_particle_tracking)
-
         toolbar.addWidget(self.btn_open)
-        toolbar.addWidget(self.btn_track)
+        toolbar.addWidget(self.btn_track_snake)
+        toolbar.addWidget(self.btn_track_curr_snake)
         toolbar.addWidget(self.btn_track_particle)
-        toolbar.addWidget(self.btn_track_curr)
+        toolbar.addWidget(self.btn_track_curr_particle)
         toolbar.addWidget(self.btn_save)
         toolbar.addWidget(self.btn_load)
         layout.addLayout(toolbar)
@@ -201,9 +211,10 @@ class SlurpyGui(QMainWindow):
         # changing frames.
         self.slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_load.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.btn_track.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_track_snake.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_track_particle.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.btn_track_curr.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_track_curr_snake.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_track_curr_particle.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_save.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def _init_menus(self) -> None:
@@ -269,29 +280,39 @@ class SlurpyGui(QMainWindow):
 
         action_menu = menu_bar.addMenu("&Action")
 
-        self.action_track = QAction(text="&Track", parent=self)
-        self.action_track.setShortcut(QKeySequence("Ctrl+T"))
-        self.action_track.triggered.connect(slot=self.run_snake_tracking)
-        self.action_track.setEnabled(False)
-        action_menu.addAction(self.action_track)
+        self.action_track_snake = QAction(text="&Snake track", parent=self)
+        self.action_track_snake.setShortcut(QKeySequence("Ctrl+T"))
+        self.action_track_snake.triggered.connect(slot=self.run_snake_tracking)
+        self.action_track_snake.setEnabled(False)
+        action_menu.addAction(self.action_track_snake)
 
         self.action_track_particle = QAction(
-            text="&Track particle", parent=self)
+            text="&Particle track", parent=self)
         self.action_track_particle.setShortcut(QKeySequence("Ctrl+P"))
         self.action_track_particle.triggered.connect(
             slot=self.run_particle_tracking)
         self.action_track_particle.setEnabled(False)
         action_menu.addAction(self.action_track_particle)
 
-        self.action_track_curr = QAction(
-            text="Track &current frame", parent=self
+        self.action_track_curr_snake = QAction(
+            text="Snake track &current frame", parent=self
         )
-        self.action_track_curr.setShortcut(QKeySequence("Ctrl+F"))
-        self.action_track_curr.triggered.connect(
-            slot=self.track_current_frame_action
+        self.action_track_curr_snake.setShortcut(QKeySequence("Alt+T"))
+        self.action_track_curr_snake.triggered.connect(
+            slot=self.track_current_frame_snake
         )
-        self.action_track_curr.setEnabled(False)
-        action_menu.addAction(self.action_track_curr)
+        self.action_track_curr_snake.setEnabled(False)
+        action_menu.addAction(self.action_track_curr_snake)
+
+        self.action_track_curr_particle = QAction(
+            text="Particle track &current frame", parent=self
+        )
+        self.action_track_curr_particle.setShortcut(QKeySequence("Alt+P"))
+        self.action_track_curr_particle.triggered.connect(
+            slot=self.track_current_frame_particle
+        )
+        self.action_track_curr_particle.setEnabled(False)
+        action_menu.addAction(self.action_track_curr_particle)
 
         self.action_resample = QAction(
             text="&Resample Splines...", parent=self
@@ -679,19 +700,31 @@ class SlurpyGui(QMainWindow):
         self.slider.setRange(0, self.model.total_frames - 1)
         self.slider.setValue(start_frame)
 
-        # What: Enable track controls now that media is loaded.
-        # Why: Prevents operations on empty models.
-        self.slider.setEnabled(True)
-        self.btn_track.setEnabled(True)
-        self.action_track.setEnabled(True)
-        self.action_track_particle.setEnabled(True)
-        self.btn_track_curr.setEnabled(True)
-        self.action_track_curr.setEnabled(True)
-
+        self._set_tracking_controls_enabled(enabled=True)
         self._read_and_display_frame(frame_idx=start_frame)
 
         if self.model.seed_spline:
             self.action_apply_seed.setEnabled(True)
+
+    def _set_tracking_controls_enabled(self, enabled: bool) -> None:
+        """
+        Helper to toggle the enabled state of tracking UI controls.
+
+        Parameters
+        ----------
+        enabled : bool
+            Whether controls should be enabled.
+        """
+        self.slider.setEnabled(enabled)
+        self.btn_track_snake.setEnabled(enabled)
+        self.action_track_snake.setEnabled(enabled)
+        self.btn_track_particle.setEnabled(enabled)
+        self.action_track_particle.setEnabled(enabled)
+        self.btn_track_curr_snake.setEnabled(enabled)
+        self.action_track_curr_snake.setEnabled(enabled)
+        self.btn_track_curr_particle.setEnabled(enabled)
+        self.action_track_curr_particle.setEnabled(enabled)
+        self.action_resample.setEnabled(enabled)
 
     def _read_and_display_frame(self, frame_idx: int) -> None:
         """
@@ -725,23 +758,6 @@ class SlurpyGui(QMainWindow):
         self.action_resample.setEnabled(len(self.model.anchors) >= 2)
 
         self._display_canvas()
-
-    def run_particle_tracking(self) -> None:
-        """
-        Handle the particle tracking button click event.
-        """
-        # What: Execute particle tracking for the current frame.
-        # Why: Triggers the new motion model logic.
-        self.model.run_particle_tracking(
-            start_frame=self.model.current_frame_idx
-        )
-
-        # What: Advance the GUI to the newly tracked frame.
-        # Why: Provides visual feedback to the user.
-        next_frame = self.model.current_frame_idx + 1
-        if next_frame < self.model.total_frames:
-            self._read_and_display_frame(frame_idx=next_frame)
-            self.slider.setValue(next_frame)
 
     def on_slider_change(self, value: int) -> None:
         """
@@ -1044,77 +1060,86 @@ class SlurpyGui(QMainWindow):
         Returns
         -------
         None
-
-        Examples
-        --------
-        >>> # Starts full pipeline automation pass
-        >>> # window.run_tracking()
         """
         if not self.model.anchors or self.model.container is None:
             return
 
         # What: Lock the UI buttons and menus.
         # Why: Prevents concurrent modifications to data maps.
-        self.slider.setEnabled(False)
-        self.btn_track.setEnabled(False)
-        self.action_track.setEnabled(False)
-        self.action_track_particle.setEnabled(False)
-        self.btn_track_curr.setEnabled(False)
-        self.action_track_curr.setEnabled(False)
-        self.action_resample.setEnabled(False)
+        self._set_tracking_controls_enabled(enabled=False)
 
         self._is_tracking = True
         start_idx: int = self.slider.value()
 
-        init_anchors: list[list[float]] = [list(a) for a in self.model.anchors]
-
-        for frame_idx in range(start_idx + 1, self.model.total_frames):
+        # What: Consume model generator yields to update the canvas.
+        # Why: Retains decoupled model state while permitting live GUI display.
+        for frame_idx in self.model.run_snake_tracking(start_idx=start_idx):
             self.slider.setValue(frame_idx)
             QApplication.processEvents()
-            self.model.process_frame(frame_idx=frame_idx)
-            self._display_canvas()
-
-        self.model.anchors = [list(a) for a in init_anchors]
-        self.model.read_frame(frame_idx=start_idx)
-        self.model.update_spline()
-
-        for frame_idx in range(start_idx - 1, -1, -1):
-            self.slider.setValue(frame_idx)
-            QApplication.processEvents()
-            self.model.process_frame(frame_idx=frame_idx)
             self._display_canvas()
 
         self._is_tracking = False
 
         # What: Restore UI interactions.
         # Why: Tracking cycle finished successfully.
-        self.slider.setEnabled(True)
-        self.btn_track.setEnabled(True)
-        self.action_track.setEnabled(True)
-        self.action_track_particle.setEnabled(True)
-        self.btn_track_curr.setEnabled(True)
-        self.action_track_curr.setEnabled(True)
-
-        self.action_resample.setEnabled(len(self.model.anchors) >= 2)
+        self._set_tracking_controls_enabled(enabled=True)
         self.slider.setValue(start_idx)
 
-    def track_current_frame_action(self) -> None:
+    def run_particle_tracking(self) -> None:
+        """
+        Temporarily disable interactions while executing the particle
+        tracking pass forwards and backward.
+
+        Returns
+        -------
+        None
+        """
+        if not self.model.anchors or self.model.container is None:
+            return
+
+        self._set_tracking_controls_enabled(enabled=False)
+
+        self._is_tracking = True
+        start_idx: int = self.slider.value()
+
+        for frame_idx in self.model.run_particle_tracking(start_idx=start_idx):
+            self.slider.setValue(frame_idx)
+            QApplication.processEvents()
+            self._display_canvas()
+
+        self._is_tracking = False
+
+        self._set_tracking_controls_enabled(enabled=True)
+        self.slider.setValue(start_idx)
+
+    def track_current_frame_snake(self) -> None:
         """
         Action callback to trigger frame-specific snake calculations.
 
         Returns
         -------
         None
-
-        Examples
-        --------
-        >>> # Executes isolated single-frame active contour logic
-        >>> # window.track_current_frame_action()
         """
         if self.model.container is None:
             return
 
-        self.model.track_current_frame()
+        self.model.track_current_frame_snake()
+        self._display_canvas()
+
+        self.action_resample.setEnabled(len(self.model.anchors) >= 2)
+
+    def track_current_frame_particle(self) -> None:
+        """
+        Action callback to trigger frame-specific particle calculations.
+
+        Returns
+        -------
+        None
+        """
+        if self.model.container is None:
+            return
+
+        self.model.track_current_frame_particle()
         self._display_canvas()
 
         self.action_resample.setEnabled(len(self.model.anchors) >= 2)
@@ -1416,10 +1441,10 @@ def launch_gui(
         window.slider.setValue(start_frame)
 
         window.slider.setEnabled(True)
-        window.btn_track.setEnabled(True)
-        window.action_track.setEnabled(True)
+        window.btn_track_snake.setEnabled(True)
+        window.action_track_snake.setEnabled(True)
         window.btn_track_curr.setEnabled(True)
-        window.action_track_curr.setEnabled(True)
+        window.action_track_curr_snake.setEnabled(True)
 
         window._read_and_display_frame(frame_idx=start_frame)
         if window.model.seed_spline:
