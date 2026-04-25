@@ -504,14 +504,28 @@ class SlurpyModel:
         >>> model.anchors = [[0.0, 0.0], [10.0, 10.0]]
         >>> list(model.run_snake_tracking(start_idx=0))
         """
-        if not self.anchors or self.container is None:
+        if not self.anchors:
+            if self.seed_spline:
+                self.anchors = [list(pt) for pt in self.seed_spline]
+            else:
+                return
+        if self.container is None:
             return
 
         init_anchors: list[list[float]] = [list(a) for a in self.anchors]
 
+        apply_curr: bool = self.config.apply_tracking_to_current_frame
+        start_offset: int = 0 if apply_curr else 1
+
         # Forward Pass evaluation loop
-        for frame_idx in range(start_idx + 1, self.total_frames):
+        for frame_idx in range(start_idx + start_offset, self.total_frames):
             self._process_frame_snake(frame_idx=frame_idx)
+
+            # What: Update baseline for backward pass.
+            # Why: Ensure backward tracking uses the refined start frame.
+            if frame_idx == start_idx:
+                init_anchors = [list(a) for a in self.anchors]
+
             yield frame_idx
 
         # Reset State and anchor data back to target zero
@@ -543,17 +557,31 @@ class SlurpyModel:
         >>> model = SlurpyModel()
         >>> list(model.run_particle_tracking(start_idx=10))
         """
-        if not self.anchors or self.container is None:
+        if not self.anchors:
+            if self.seed_spline:
+                self.anchors = [list(pt) for pt in self.seed_spline]
+            else:
+                return
+        if self.container is None:
             return
 
         init_anchors: list[list[float]] = [list(a) for a in self.anchors]
         current_anchors: list[list[float]] = [list(a) for a in self.anchors]
 
+        apply_curr: bool = self.config.apply_tracking_to_current_frame
+        start_offset: int = 0 if apply_curr else 1
+
         # Forward Pass
-        for frame_idx in range(start_idx + 1, self.total_frames):
+        for frame_idx in range(start_idx + start_offset, self.total_frames):
             current_anchors = self._process_frame_particle(
                 frame_idx=frame_idx, base_anchors=current_anchors
             )
+
+            # What: Update baseline for backward pass.
+            # Why: Ensure backward tracking uses the refined start frame.
+            if frame_idx == start_idx:
+                init_anchors = [list(a) for a in current_anchors]
+
             yield frame_idx
 
         # Reset State and anchor data back to target zero

@@ -90,12 +90,18 @@ class SlurpyConfig(BaseModel):
 
     Attributes
     ----------
+    apply_tracking_to_current_frame: bool
+        Should the current frame be replaced by applying
+        the tracking algorithm to it too or not, defaults to True.
     gui : GuiConfig
         Nested configuration for the GUI.
+    particle : ParticleConfig
+        Configuration for the particle tracking algorithm.
     snake : SnakeConfig
-        Nested configuration for the algorithm.
+        Configuration for the snake algorithm.
     """
 
+    apply_tracking_to_current_frame: bool = True
     gui: GuiConfig = Field(default_factory=GuiConfig)
     particle: ParticleConfig = Field(default_factory=ParticleConfig)
     snake: SnakeConfig = Field(default_factory=SnakeConfig)

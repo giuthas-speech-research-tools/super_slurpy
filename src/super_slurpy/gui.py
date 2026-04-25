@@ -235,7 +235,7 @@ class SlurpyGui(QMainWindow):
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu("&File")
 
-        action_open = QAction(text="&Open Video", parent=self)
+        action_open = QAction(text="&Open video", parent=self)
         action_open.setShortcut(QKeySequence("Ctrl+O"))
         action_open.triggered.connect(slot=self.open_video)
         file_menu.addAction(action_open)
@@ -268,7 +268,7 @@ class SlurpyGui(QMainWindow):
 
         file_menu.addSeparator()
 
-        action_close = QAction(text="&Close Window", parent=self)
+        action_close = QAction(text="&Close window", parent=self)
         action_close.setShortcut(QKeySequence("Ctrl+W"))
         action_close.triggered.connect(slot=self.close)
         file_menu.addAction(action_close)
@@ -315,7 +315,7 @@ class SlurpyGui(QMainWindow):
         action_menu.addAction(self.action_track_curr_particle)
 
         self.action_resample = QAction(
-            text="&Resample Splines...", parent=self
+            text="&Resample splines...", parent=self
         )
         self.action_resample.setShortcut(QKeySequence("Ctrl+R"))
         self.action_resample.triggered.connect(slot=self.resample_splines)
@@ -334,7 +334,7 @@ class SlurpyGui(QMainWindow):
         action_menu.addAction(self.action_apply_seed)
 
         self.action_clear_splines = QAction(
-            text="&Clear All Splines", parent=self
+            text="&Clear all splines", parent=self
         )
         self.action_clear_splines.triggered.connect(
             slot=self.clear_all_splines
@@ -343,15 +343,39 @@ class SlurpyGui(QMainWindow):
 
         nav_menu = menu_bar.addMenu("&Navigation")
 
-        action_prev = QAction(text="&Previous Frame", parent=self)
+        action_prev = QAction(text="&Previous frame", parent=self)
         action_prev.setShortcut(QKeySequence(Qt.Key.Key_Left))
         action_prev.triggered.connect(slot=self._prev_frame)
         nav_menu.addAction(action_prev)
 
-        action_next = QAction(text="&Next Frame", parent=self)
+        action_next = QAction(text="&Next frame", parent=self)
         action_next.setShortcut(QKeySequence(Qt.Key.Key_Right))
         action_next.triggered.connect(slot=self._next_frame)
         nav_menu.addAction(action_next)
+
+        menu_settings = self.menuBar().addMenu("Settings")
+        self.action_apply_current = QAction(
+            text="Apply tracking to current frame", parent=self
+        )
+        self.action_apply_current.setCheckable(True)
+        self.action_apply_current.setChecked(
+            self.model.config.apply_tracking_to_current_frame
+        )
+        self.action_apply_current.triggered.connect(
+            slot=self._toggle_apply_current
+        )
+        menu_settings.addAction(self.action_apply_current)
+
+    def _toggle_apply_current(self, checked: bool) -> None:
+        """
+        Action callback to toggle tracking refinement of the start frame.
+
+        Parameters
+        ----------
+        checked : bool
+            The new checked state of the menu item.
+        """
+        self.model.config.apply_tracking_to_current_frame = checked
 
     def _init_particle_controls(self, layout: QVBoxLayout) -> None:
         """
