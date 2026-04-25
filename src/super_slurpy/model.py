@@ -239,7 +239,7 @@ class SlurpyModel:
         """
         Calculate the interpolated contour and auto-save anchors.
 
-        Uses PCHIP interpolation for smooth bounds and linear mappings 
+        Uses PCHIP interpolation for smooth bounds and linear mappings
         for 2-point arrays. Updates internal contour state.
 
         Examples
@@ -274,7 +274,11 @@ class SlurpyModel:
 
         self.contour = interp_func(x=k_new)
 
-    def _compute_egrad(self, img: np.ndarray, sigma: float = 1.0) -> np.ndarray:
+    def _compute_egrad(
+        self,
+        img: np.ndarray,
+        sigma: float = 1.0
+    ) -> np.ndarray:
         """
         Calculate the normalized external gradient energy map.
 
