@@ -27,9 +27,25 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- v0.4.0 will add API documentation with sphinx.
-- v1.0 will be released after documentation is updated and functionality has
-  been integration tested.
+- v1.0 will be released after functionality has been integration tested.
+
+
+## [0.4.0] - 2026-04-25
+
+### Highlights
+
+- API docs added to the Github pages.
+
+### Added
+
+- API docs added to the Github pages. These are automatically generated with
+  Sphinx.
+
+### Bugs 
+
+- The gui focus can get stuck in the parameter edit fields preventing use of
+  left and right arrow keys to flip through the frames.
+
 
 ## [0.3.3] - 2026-04-25
 
