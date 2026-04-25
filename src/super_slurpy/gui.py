@@ -529,7 +529,7 @@ class SnakeGUI(QMainWindow):
                 self.contour[:, 1],
                 color="blue",
                 linestyle="-",
-                linewidth=2
+                linewidth=1
             )
 
         # Draw the red interactive anchor points
@@ -541,7 +541,7 @@ class SnakeGUI(QMainWindow):
                 color="red",
                 marker="o",
                 linestyle="None",
-                markersize=6
+                markersize=3
             )
 
         # Force an immediate redraw of the canvas widget
