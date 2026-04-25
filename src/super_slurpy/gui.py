@@ -271,10 +271,7 @@ class SnakeGUI(QMainWindow):
         self.action_apply_seed.triggered.connect(
             slot=self.apply_seed_spline
         )
-        # Enable only if a seed spline is actually cached in memory
-        self.action_apply_seed.setEnabled(
-            self.seed_spline is not None
-        )
+        self.action_apply_seed.setEnabled(False)
         action_menu.addAction(self.action_apply_seed)
 
         self.action_clear_splines = QAction(
@@ -422,7 +419,7 @@ class SnakeGUI(QMainWindow):
         """
         file_path, _ = QFileDialog.getOpenFileName(
             parent=self,
-            caption="Open Video",
+            caption="Open video",
             directory="",
             filter=VIDEO_FILTER
         )
