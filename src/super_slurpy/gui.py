@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QSlider,
     QVBoxLayout,
@@ -196,7 +197,7 @@ class SnakeGUI(QMainWindow):
         """
         menu_bar = self.menuBar()
 
-        # 1. File Menu Setup
+        # File menu setup
         file_menu = menu_bar.addMenu("&File")
 
         action_open = QAction(text="&Open Video", parent=self)
@@ -216,6 +217,19 @@ class SnakeGUI(QMainWindow):
 
         file_menu.addSeparator()
 
+        action_load_seed_spline = QAction(
+            text="&Load seed spline...", parent=self)
+        action_load_seed_spline.triggered.connect(slot=self.load_seed_spline)
+        file_menu.addAction(action_load_seed_spline)
+
+        action_save_spline = QAction(
+            text="&Save current spline as default", parent=self
+        )
+        action_save_spline.triggered.connect(slot=self.save_default_spline)
+        file_menu.addAction(action_save_spline)
+
+        file_menu.addSeparator()
+
         action_close = QAction(text="&Close Window", parent=self)
         action_close.setShortcut(QKeySequence("Ctrl+W"))
         action_close.triggered.connect(slot=self.close)
@@ -226,7 +240,7 @@ class SnakeGUI(QMainWindow):
         action_quit.triggered.connect(slot=self.close)
         file_menu.addAction(action_quit)
 
-        # 2. Action Menu Setup
+        # Action menu setup
         action_menu = menu_bar.addMenu("&Action")
 
         self.action_track = QAction(text="&Track", parent=self)
@@ -243,7 +257,7 @@ class SnakeGUI(QMainWindow):
         self.action_resample.setEnabled(False)
         action_menu.addAction(self.action_resample)
 
-        # 3. Navigation Menu Setup
+        # Navigation menu setup
         nav_menu = menu_bar.addMenu("&Navigation")
 
         action_prev = QAction(text="&Previous Frame", parent=self)
@@ -934,6 +948,131 @@ class SnakeGUI(QMainWindow):
         self.statusBar().showMessage(
             f"Success: Resampled splines to {num_points} control points.", 5000
         )
+
+    def save_default_spline(self) -> None:
+        """
+        Save the currently active anchors as a default spline CSV.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui.save_default_spline()
+        """
+        if not self.anchors:
+            self.statusBar().showMessage("Warning: No spline to save.", 5000)
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            parent=self,
+            caption="Save Default Spline",
+            directory="",
+            filter="CSV Files (*.csv)",
+        )
+
+        if not file_path:
+            return
+
+        try:
+            with open(file=file_path, mode="w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["point_id", "x", "y"])
+                for i, (x, y) in enumerate(self.anchors):
+                    writer.writerow([i, x, y])
+
+            self.statusBar().showMessage(
+                f"Success: Spline saved to {file_path}", 5000
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                parent=self,
+                title="Error",
+                text=f"Failed to save spline: {e}",
+            )
+
+    def load_seed_spline(self) -> None:
+        """
+        Load a seed spline from a CSV file, replacing the current state.
+
+        Checks if data will be discarded and prompts the user.
+        Validates the CSV format before applying.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui.load_default_spline()
+        """
+        # Warn user if they are about to lose active data
+        if self.anchors_history:
+            reply = QMessageBox.question(
+                self,
+                "Confirm Discard",
+                "Loading a new spline will discard all current "
+                "tracking data. Proceed?",
+                buttons=(
+                    QMessageBox.StandardButton.Yes |
+                    QMessageBox.StandardButton.No
+                ),
+                defaultButton=QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            parent=self,
+            caption="Load Spline",
+            directory="",
+            filter="CSV Files (*.csv)",
+        )
+
+        if not file_path:
+            return
+
+        try:
+            new_anchors: list[list[float]] = []
+            with open(file=file_path, mode="r", newline="") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+
+                # Strictly validate against the expected file format
+                if header != ["point_id", "x", "y"]:
+                    raise ValueError(
+                        "Invalid file format. Header must be: point_id,x,y"
+                    )
+
+                for row in reader:
+                    if len(row) != 3:
+                        continue
+                    new_anchors.append([float(row[1]), float(row[2])])
+
+            # Apply new anchors and wipe existing history
+            self.anchors = new_anchors
+            self.anchors_history.clear()
+
+            # Save the freshly loaded spline to the current frame index
+            self.anchors_history[self.current_frame_idx] = [
+                list(pt) for pt in self.anchors
+            ]
+
+            self._update_spline()
+            self.statusBar().showMessage(
+                "Success: Default spline loaded.", 5000
+            )
+
+        except Exception as e:
+            # Catch format errors informatively
+            QMessageBox.critical(
+                parent=self,
+                title="Format Error",
+                text=f"Failed to load spline correctly.\n\n{e}",
+            )
 
 
 def launch_gui() -> None:
