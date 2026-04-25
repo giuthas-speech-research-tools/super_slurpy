@@ -35,11 +35,20 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Highlights
 
 - API docs added to the Github pages.
+- Added previously missing functionality:
+  - PCA and motion modelling for better tracking.
 
 ### Added
 
 - API docs added to the Github pages. These are automatically generated with
   Sphinx.
+- Added previously missing functionality:
+  - PCA and motion modelling for better tracking.
+
+## Changed
+
+- The C files and headers now live in their own directory for cleaner package
+  structure.
 
 ### Bugs 
 
