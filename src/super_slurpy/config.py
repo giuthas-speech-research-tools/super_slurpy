@@ -3,6 +3,14 @@ Configuration management for Super-Slurpy.
 
 Handles the loading of the YAML configuration file from multiple
 potential fallback locations and validates it using Pydantic.
+
+Examples
+--------
+>>> from super_slurpy.config import load_config
+>>> from pathlib import Path
+>>> config = load_config(config_dir=Path("/path/to/data"))
+>>> print(config.gui.proportional_frame)
+0.5
 """
 
 import importlib.resources
@@ -27,10 +35,12 @@ class GuiConfig(BaseModel):
     default_frame : int | None
         The absolute frame number to start on, defaults to None.
     proportional_frame : float | None
-        The proportional position to start on (0.0 to 1.0), defaults to 0.5.
+        The proportional position to start on (0.0 to 1.0),
+        defaults to 0.5.
     seed_spline_file : str | None
         Path or filename of the seed spline file, defaults to None.
     """
+
     default_frame: int | None = None
     proportional_frame: float | None = 0.5
     seed_spline_file: str | None = None
@@ -49,6 +59,7 @@ class SnakeConfig(BaseModel):
     band_penalty : float
         Penalty for venturing outside the target band, defaults to 10.0.
     """
+
     alpha: float = 0.1
     lambda1: float = 0.5
     band_penalty: float = 10.0
@@ -65,6 +76,7 @@ class SuperSlurpyConfig(BaseModel):
     snake : SnakeConfig
         Nested configuration for the algorithm.
     """
+
     gui: GuiConfig = Field(default_factory=GuiConfig)
     snake: SnakeConfig = Field(default_factory=SnakeConfig)
 
@@ -127,9 +139,7 @@ def load_config(config_dir: Path | None = None) -> SuperSlurpyConfig:
         ) / CONFIG_FILENAME
 
         if resource_path.is_file():
-            content: str = resource_path.read_text(
-                encoding="utf-8"
-            )
+            content: str = resource_path.read_text(encoding="utf-8")
             raw_config = yaml.safe_load(stream=content) or {}
 
     return SuperSlurpyConfig(**raw_config)

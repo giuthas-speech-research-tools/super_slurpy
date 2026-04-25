@@ -3,6 +3,12 @@ Constants and globals for the Super-Slurpy project.
 
 This module centralizes all configuration values, status codes,
 and text messages to maintain a proper separation of concerns.
+
+Examples
+--------
+>>> from super_slurpy.constants import DEFAULT_SPLINE_POINTS
+>>> print(DEFAULT_SPLINE_POINTS)
+20
 """
 
 # Exit status code indicating missing optional dependencies
