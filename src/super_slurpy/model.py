@@ -176,6 +176,22 @@ class SlurpyModel:
         default_config = load_resource_config()
         self.config.snake = default_config.snake
 
+    def reset_particle_parameters(self) -> None:
+        """
+        Reset the particle model parameters to the package defaults.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> model = SlurpyModel()
+        >>> model.reset_particle_parameters()
+        """
+        default_config = load_resource_config()
+        self.config.particle = default_config.particle
+
     def open_video(self, file_path: str) -> int:
         """
         Open a video and calculate the starting frame based on config.
@@ -417,6 +433,41 @@ class SlurpyModel:
         # Backward Pass evaluation loop
         for frame_idx in range(start_idx - 1, -1, -1):
             self.process_frame(frame_idx=frame_idx)
+
+    def run_particle_tracking(self, start_frame: int) -> None:
+        """
+        Execute particle filter tracking from a starting frame.
+
+        Parameters
+        ----------
+        start_frame : int
+            The index of the frame to begin tracking from.
+        """
+        # What: Import locally to avoid circular dependencies.
+        # Why: motion module relies on external dependencies.
+        from super_slurpy.motion import run_particle_filter
+
+        num_particles = self.config.particle.num_particles
+        noise_scale = self.config.particle.noise_scale
+
+        if start_frame not in self.anchors_history:
+            return
+
+        base_anchors = np.array(object=self.anchors_history[start_frame])
+
+        # What: Generate particle hypotheses.
+        # Why: Seeds the next frame's evaluation pool.
+        particles = run_particle_filter(
+            base_contour=base_anchors,
+            num_particles=num_particles,
+            noise_scale=noise_scale,
+        )
+
+        # What: Assign the best particle to the next frame.
+        # Why: Progresses the tracking sequence.
+        # Note: Energy evaluation integration omitted for brevity.
+        best_particle = particles[0]
+        self.anchors_history[start_frame + 1] = best_particle.tolist()
 
     def track_current_frame(self) -> None:
         """

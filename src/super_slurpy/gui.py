@@ -21,7 +21,12 @@ import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction, QDoubleValidator, QKeySequence
+from PyQt6.QtGui import (
+    QAction,
+    QDoubleValidator,
+    QIntValidator,
+    QKeySequence,
+)
 from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -123,7 +128,7 @@ class SlurpyGui(QMainWindow):
         self.btn_track = QPushButton(
             text="Track (Ctrl+T)", parent=main_widget
         )
-        self.btn_track.clicked.connect(slot=self.run_tracking)
+        self.btn_track.clicked.connect(slot=self.run_snake_tracking)
         self.btn_track.setEnabled(False)
 
         self.btn_track_curr = QPushButton(
@@ -145,8 +150,13 @@ class SlurpyGui(QMainWindow):
         )
         self.btn_load.clicked.connect(slot=self.load_results_from_csv)
 
+        self.btn_track_particle = QPushButton("Track particle (Ctrl+P)")
+        self.btn_track_particle.setEnabled(False)
+        self.btn_track_particle.clicked.connect(self.run_particle_tracking)
+
         toolbar.addWidget(self.btn_open)
         toolbar.addWidget(self.btn_track)
+        toolbar.addWidget(self.btn_track_particle)
         toolbar.addWidget(self.btn_track_curr)
         toolbar.addWidget(self.btn_save)
         toolbar.addWidget(self.btn_load)
@@ -184,6 +194,7 @@ class SlurpyGui(QMainWindow):
         )
 
         self._init_snake_controls(layout=layout)
+        self._init_particle_controls(layout=layout)
 
         # What: Remove focus policy from interactive buttons.
         # Why: Prevents arrow keys from shifting focus instead of
@@ -191,6 +202,8 @@ class SlurpyGui(QMainWindow):
         self.slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_load.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_track.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_track_particle.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_track_curr.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_save.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def _init_menus(self) -> None:
@@ -258,9 +271,17 @@ class SlurpyGui(QMainWindow):
 
         self.action_track = QAction(text="&Track", parent=self)
         self.action_track.setShortcut(QKeySequence("Ctrl+T"))
-        self.action_track.triggered.connect(slot=self.run_tracking)
+        self.action_track.triggered.connect(slot=self.run_snake_tracking)
         self.action_track.setEnabled(False)
         action_menu.addAction(self.action_track)
+
+        self.action_track_particle = QAction(
+            text="&Track particle", parent=self)
+        self.action_track_particle.setShortcut(QKeySequence("Ctrl+P"))
+        self.action_track_particle.triggered.connect(
+            slot=self.run_particle_tracking)
+        self.action_track_particle.setEnabled(False)
+        action_menu.addAction(self.action_track_particle)
 
         self.action_track_curr = QAction(
             text="Track &current frame", parent=self
@@ -311,6 +332,121 @@ class SlurpyGui(QMainWindow):
         action_next.triggered.connect(slot=self._next_frame)
         nav_menu.addAction(action_next)
 
+    def _init_particle_controls(self, layout: QVBoxLayout) -> None:
+        """
+        Initialize UI controls for the particle filter parameters.
+
+        Parameters
+        ----------
+        layout : QVBoxLayout
+            The parent layout to append the controls into.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Called internally during UI construction
+        """
+        particle_layout = QHBoxLayout()
+
+        # What: Create a double validator for float inputs.
+        # Why: Ensures valid numerical input for scale/variance.
+        double_val = QDoubleValidator()
+        double_val.setBottom(0.0)
+
+        # What: Create an int validator for the particle count.
+        # Why: Particle hypotheses must be positive integers.
+        int_val = QIntValidator()
+        int_val.setBottom(1)
+
+        # --- Num Particles ---
+        # What: Create input grouping for the number of particles.
+        # Why: Allows users to balance performance vs accuracy.
+        hbox_num = QHBoxLayout()
+        lbl_num = QLabel("Particles:")
+        self.edit_num = QLineEdit()
+        self.edit_num.setValidator(int_val)
+        self.edit_num.setText(
+            str(object=self.model.config.particle.num_particles)
+        )
+        self.edit_num.editingFinished.connect(
+            self._on_particle_params_changed
+        )
+        hbox_num.addWidget(lbl_num)
+        hbox_num.addWidget(self.edit_num)
+        particle_layout.addLayout(hbox_num)
+
+        # --- Percent Variance ---
+        # What: Create input grouping for shape variance threshold.
+        # Why: Allows tuning how rigid the shape model is.
+        hbox_var = QHBoxLayout()
+        lbl_var = QLabel("PCA Var (%):")
+        self.edit_var = QLineEdit()
+        self.edit_var.setValidator(double_val)
+        self.edit_var.setText(
+            str(object=self.model.config.particle.percent_var)
+        )
+        self.edit_var.editingFinished.connect(
+            self._on_particle_params_changed
+        )
+        hbox_var.addWidget(lbl_var)
+        hbox_var.addWidget(self.edit_var)
+        particle_layout.addLayout(hbox_var)
+
+        # --- Noise Scale ---
+        # What: Create input grouping for the particle noise scale.
+        # Why: Tunes how widely the particles spread out to search.
+        hbox_scale = QHBoxLayout()
+        lbl_scale = QLabel("Noise scale:")
+        self.edit_scale = QLineEdit()
+        self.edit_scale.setValidator(double_val)
+        self.edit_scale.setText(
+            str(object=self.model.config.particle.noise_scale)
+        )
+        self.edit_scale.editingFinished.connect(
+            self._on_particle_params_changed
+        )
+        hbox_scale.addWidget(lbl_scale)
+        hbox_scale.addWidget(self.edit_scale)
+        particle_layout.addLayout(hbox_scale)
+
+        self.btn_reset_particle_params = QPushButton(
+            text="Reset particle params", parent=self
+        )
+        self.btn_reset_particle_params.clicked.connect(
+            slot=self._reset_particle_params)
+
+        particle_layout.addWidget(self.btn_reset_particle_params)
+
+        layout.addLayout(particle_layout)
+
+    def _on_particle_params_changed(self) -> None:
+        """
+        Update the configuration when particle edit fields change.
+
+        This method is triggered automatically when a user finishes
+        editing one of the particle QLineEdit fields.
+        """
+        # What: Update num_particles if the input is valid.
+        # Why: Syncs the UI integer state with the underlying config.
+        num_text = self.edit_num.text()
+        if num_text:
+            self.model.config.particle.num_particles = int(num_text)
+
+        # What: Update percent_var if the input is valid.
+        # Why: Syncs the float parameter for shape model variance.
+        var_text = self.edit_var.text()
+        if var_text:
+            self.model.config.particle.percent_var = float(var_text)
+
+        # What: Update noise_scale if the input is valid.
+        # Why: Syncs the float parameter for tracking particle spread.
+        scale_text = self.edit_scale.text()
+        if scale_text:
+            self.model.config.particle.noise_scale = float(scale_text)
+
     def _init_snake_controls(self, layout: QVBoxLayout) -> None:
         """
         Construct and bind text entry controls for the snake parameters.
@@ -357,10 +493,11 @@ class SlurpyGui(QMainWindow):
         self.edit_band.setText(str(self.model.config.snake.band_penalty))
         self.edit_band.editingFinished.connect(slot=self._update_params)
 
-        self.btn_reset_params = QPushButton(
-            text="Reset Params", parent=self
+        self.btn_reset_snake_params = QPushButton(
+            text="Reset snake params", parent=self
         )
-        self.btn_reset_params.clicked.connect(slot=self._reset_params)
+        self.btn_reset_snake_params.clicked.connect(
+            slot=self._reset_snake_params)
 
         controls_layout.addWidget(lbl_alpha)
         controls_layout.addWidget(self.edit_alpha)
@@ -368,7 +505,7 @@ class SlurpyGui(QMainWindow):
         controls_layout.addWidget(self.edit_lambda1)
         controls_layout.addWidget(lbl_band)
         controls_layout.addWidget(self.edit_band)
-        controls_layout.addWidget(self.btn_reset_params)
+        controls_layout.addWidget(self.btn_reset_snake_params)
 
         layout.addLayout(controls_layout)
 
@@ -395,9 +532,9 @@ class SlurpyGui(QMainWindow):
                 "Error: Parameter fields cannot be empty.", 5000
             )
 
-    def _reset_params(self) -> None:
+    def _reset_snake_params(self) -> None:
         """
-        Restore the parameter states to their factory defaults.
+        Restore the snake parameters to their defaults.
 
         Returns
         -------
@@ -413,6 +550,26 @@ class SlurpyGui(QMainWindow):
 
         self.statusBar().showMessage(
             "Success: Snake parameters reset to resource defaults.", 5000
+        )
+
+    def _reset_particle_params(self) -> None:
+        """
+        Restore the particle parameters to their defaults.
+
+        Returns
+        -------
+        None
+        """
+        # What: Overwrite current parameters with resource defaults.
+        # Why: Allows quick recovery if the manual tracking breaks.
+        self.model.reset_particle_parameters()
+
+        self.edit_scale.setText(str(self.model.config.particle.noise_scale))
+        self.edit_num.setText(str(self.model.config.particle.num_particles))
+        self.edit_var.setText(str(self.model.config.particle.percent_var))
+
+        self.statusBar().showMessage(
+            "Success: Particle parameters reset to resource defaults.", 5000
         )
 
     def _next_frame(self) -> None:
@@ -527,6 +684,7 @@ class SlurpyGui(QMainWindow):
         self.slider.setEnabled(True)
         self.btn_track.setEnabled(True)
         self.action_track.setEnabled(True)
+        self.action_track_particle.setEnabled(True)
         self.btn_track_curr.setEnabled(True)
         self.action_track_curr.setEnabled(True)
 
@@ -567,6 +725,23 @@ class SlurpyGui(QMainWindow):
         self.action_resample.setEnabled(len(self.model.anchors) >= 2)
 
         self._display_canvas()
+
+    def run_particle_tracking(self) -> None:
+        """
+        Handle the particle tracking button click event.
+        """
+        # What: Execute particle tracking for the current frame.
+        # Why: Triggers the new motion model logic.
+        self.model.run_particle_tracking(
+            start_frame=self.model.current_frame_idx
+        )
+
+        # What: Advance the GUI to the newly tracked frame.
+        # Why: Provides visual feedback to the user.
+        next_frame = self.model.current_frame_idx + 1
+        if next_frame < self.model.total_frames:
+            self._read_and_display_frame(frame_idx=next_frame)
+            self.slider.setValue(next_frame)
 
     def on_slider_change(self, value: int) -> None:
         """
@@ -861,7 +1036,7 @@ class SlurpyGui(QMainWindow):
                 f"Error: Failed to load CSV: {e}", 5000
             )
 
-    def run_tracking(self) -> None:
+    def run_snake_tracking(self) -> None:
         """
         Temporarily disable interactions while executing the Cython
         algorithm tracking bounds pass forwards and backward.
@@ -883,6 +1058,7 @@ class SlurpyGui(QMainWindow):
         self.slider.setEnabled(False)
         self.btn_track.setEnabled(False)
         self.action_track.setEnabled(False)
+        self.action_track_particle.setEnabled(False)
         self.btn_track_curr.setEnabled(False)
         self.action_track_curr.setEnabled(False)
         self.action_resample.setEnabled(False)
@@ -915,6 +1091,7 @@ class SlurpyGui(QMainWindow):
         self.slider.setEnabled(True)
         self.btn_track.setEnabled(True)
         self.action_track.setEnabled(True)
+        self.action_track_particle.setEnabled(True)
         self.btn_track_curr.setEnabled(True)
         self.action_track_curr.setEnabled(True)
 

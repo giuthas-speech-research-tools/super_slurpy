@@ -11,3 +11,9 @@ snake:
   alpha: 0.1
   lambda1: 0.5
   band_penalty: 10.0
+
+# Particle filter defaults
+particle:
+  num_particles: 50
+  percent_var: 0.98
+  noise_scale: 1.0

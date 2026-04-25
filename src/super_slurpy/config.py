@@ -65,6 +65,25 @@ class SnakeConfig(BaseModel):
     band_penalty: float = 10.0
 
 
+class ParticleConfig(BaseModel):
+    """
+    Configuration model for Particle Filter tracking.
+
+    Attributes
+    ----------
+    num_particles : int
+        Number of particles to generate, defaults to 50.
+    percent_var : float
+        Variance percentage for PCA shape model, defaults to 0.98.
+    noise_scale : float
+        Scale of the noise applied to particles, defaults to 1.0.
+    """
+
+    num_particles: int = 50
+    percent_var: float = 0.98
+    noise_scale: float = 1.0
+
+
 class SlurpyConfig(BaseModel):
     """
     Root configuration model for the application.
@@ -78,6 +97,7 @@ class SlurpyConfig(BaseModel):
     """
 
     gui: GuiConfig = Field(default_factory=GuiConfig)
+    particle: ParticleConfig = Field(default_factory=ParticleConfig)
     snake: SnakeConfig = Field(default_factory=SnakeConfig)
 
 
