@@ -23,7 +23,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QMessageBox,
     QPushButton,
     QSlider,
     QSpinBox,
@@ -619,23 +618,16 @@ class SnakeGUI(QMainWindow):
 
         Iterates over the tracking history and writes the
         frame index, point ID, and X/Y coordinates to disk.
+        Outputs status to the application status bar.
 
         Returns
         -------
         None
-
-        Examples
-        --------
-        >>> gui = SnakeGUI()
-        >>> gui.save_results_to_csv()
         """
         # Ensure there is actually data to save
         if not self.anchors_history:
-            QMessageBox.warning(
-                parent=self,
-                title="Warning",
-                text="No tracking data to save.",
-            )
+            self.statusBar().showMessage(
+                "Warning: No tracking data to save.", 5000)
             return
 
         # Prompt user for a save location
@@ -663,11 +655,8 @@ class SnakeGUI(QMainWindow):
                 for i, (x, y) in enumerate(pts):
                     writer.writerow([frame_idx, i, x, y])
 
-        QMessageBox.information(
-            self,
-            title="Success",
-            text=f"Results saved to {file_path}",
-        )
+        self.statusBar().showMessage(
+            f"Success: Results saved to {file_path}", 5000)
 
     def load_results_from_csv(self) -> None:
         """
@@ -676,15 +665,11 @@ class SnakeGUI(QMainWindow):
         Reads a previously saved CSV file and restores the
         tracking history into the application state. Updates
         the current view if data exists for the current frame.
+        Outputs status to the application status bar.
 
         Returns
         -------
         None
-
-        Examples
-        --------
-        >>> gui = SnakeGUI()
-        >>> gui.load_results_from_csv()
         """
         # Prompt user to select a CSV file
         file_path, _ = QFileDialog.getOpenFileName(
@@ -725,17 +710,12 @@ class SnakeGUI(QMainWindow):
                 # Render the updated spline
                 self._update_spline()
 
-            QMessageBox.information(
-                parent=self,
-                title="Success",
-                text="Results loaded successfully.",
-            )
+            self.statusBar().showMessage(
+                "Success: Results loaded successfully.", 5000)
+
         except Exception as e:
-            QMessageBox.critical(
-                parent=self,
-                title="Error",
-                text=f"Failed to load CSV: {e}",
-            )
+            self.statusBar().showMessage(
+                f"Error: Failed to load CSV: {e}", 5000)
 
     def _execute_tracking(self, frame_indices: list[int]) -> None:
         """
