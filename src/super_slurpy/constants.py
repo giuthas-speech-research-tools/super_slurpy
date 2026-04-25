@@ -33,3 +33,6 @@ ANCHOR_CLICK_RADIUS: float = 15.0
 
 # Supported video file extensions for the file dialog
 VIDEO_FILTER: str = "Videos (*.mp4 *.avi *.mkv)"
+
+# Seed spline filename
+DEFAULT_SEED_SPLINE: str = "slurpy_default_seed_spline.csv"

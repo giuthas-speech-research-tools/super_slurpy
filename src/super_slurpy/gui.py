@@ -37,6 +37,7 @@ from super_slurpy.config import load_config
 from super_slurpy.constants import (
     ANCHOR_CLICK_RADIUS,
     DEFAULT_SPLINE_POINTS,
+    DEFAULT_SEED_SPLINE,
     VIDEO_FILTER
 )
 from super_slurpy.core import make_snake
@@ -308,7 +309,7 @@ class SnakeGUI(QMainWindow):
         -------
         None
         """
-        filename: str | None = self.config.gui.seed_spline_file
+        filename = DEFAULT_SEED_SPLINE
         if not filename:
             return
 
@@ -462,10 +463,9 @@ class SnakeGUI(QMainWindow):
         # Load and render the calculated starting frame
         self._read_and_display_frame(frame_idx=start_frame)
 
-        # Apply the seed spline if available and no history exists
-        if self.seed_spline and not self.anchors_history:
-            self.anchors = [list(pt) for pt in self.seed_spline]
-            self._update_spline()
+        # Enable applying seed spline if there is one.
+        if self.seed_spline:
+            self.action_apply_seed.setEnabled(True)
 
     def _read_and_display_frame(self, frame_idx: int) -> None:
         """
@@ -772,7 +772,7 @@ class SnakeGUI(QMainWindow):
         # Prompt user to select a CSV file
         file_path, _ = QFileDialog.getOpenFileName(
             parent=self,
-            caption="Load Tracking Results",
+            caption="Load tracking results",
             directory="",
             filter="CSV Files (*.csv)",
         )
@@ -1083,11 +1083,11 @@ class SnakeGUI(QMainWindow):
         >>> gui.load_seed_spline()
         """
         # Warn user if they are about to lose active data
-        if self.anchors_history:
+        if len(self.anchors_history) > 1:
             reply = QMessageBox.question(
                 self,
-                "Confirm Discard",
-                "Loading a new spline will discard all current "
+                "Confirm discard",
+                "Loading a new seed spline will discard all current "
                 "tracking data. Proceed?",
                 buttons=(
                     QMessageBox.StandardButton.Yes |
@@ -1167,10 +1167,10 @@ class SnakeGUI(QMainWindow):
         if self.seed_spline is None:
             return
 
-        if self.anchors_history:
+        if len(self.anchors_history) > 1:
             reply = QMessageBox.question(
                 self,
-                "Confirm Apply",
+                "Confirm apply",
                 "Applying the seed spline will discard all "
                 "current tracking data. Proceed?",
                 buttons=(

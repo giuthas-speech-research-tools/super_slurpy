@@ -37,5 +37,10 @@ where = ["src"]
 [tool.setuptools.package-data]
 "super_slurpy" = ["*.yaml"]
 
+[dependency-groups]
+dev = [
+    "icecream>=2.2.0",
+]
+
 [tool.setuptools]
 script-files = ["setup.py"]
