@@ -112,7 +112,7 @@ jobs:
 
   pypi_publish:
     name: Upload release to PyPI
-    needs: [build_sdist, build_wheels, details, pypi_publish]
+    needs: [build_sdist, build_wheels, details]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -131,7 +131,7 @@ jobs:
 
   github_release:
     name: Create GitHub Release
-    needs: [setup_and_build, details, pypi_publish]
+    needs: [build_sdist, build_wheels, details, pypi_publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
