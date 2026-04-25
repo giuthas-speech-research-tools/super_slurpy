@@ -7,7 +7,9 @@ GUI.
 
 ## Usage
 
-
+* [Installation Guide](Installation.markdown)
+* [Command-Line Interface (CLI) Guide](Cli.markdown)
+* [Graphical User Interface (GUI) Guide](Gui.markdown)
 
 ## Latest version and release history
 
