@@ -247,7 +247,7 @@ class SnakeGUI(QMainWindow):
         # Move to the previous frame on Left Arrow
         if event.key() == Qt.Key.Key_Left:
             new_val = max(0, self.slider.value() - 1)
-            self.slider.setValue(value=new_val)
+            self.slider.setValue(new_val)
 
         # Move to the next frame on Right Arrow
         elif event.key() == Qt.Key.Key_Right:
@@ -255,7 +255,7 @@ class SnakeGUI(QMainWindow):
                 self.slider.maximum(),
                 self.slider.value() + 1,
             )
-            self.slider.setValue(value=new_val)
+            self.slider.setValue(new_val)
 
         # Propagate all other keystrokes up the inheritance chain
         else:
@@ -285,13 +285,27 @@ class SnakeGUI(QMainWindow):
         if total_frames == 0:
             total_frames = 1000
 
+        # Calculate initial frame based on configuration precedence
+        start_frame: int = 0
+        if self.config.gui.default_frame is not None:
+            # Priority 1: Absolute frame index from config
+            start_frame = self.config.gui.default_frame
+        elif self.config.gui.proportional_frame is not None:
+            # Priority 2: Proportional position (0.0 to 1.0) from config
+            start_frame = int(
+                self.config.gui.proportional_frame * (total_frames - 1)
+            )
+        # Ensure calculated start_frame is within the actual video bounds
+        start_frame = max(0, min(start_frame, total_frames - 1))
+
         self.slider.setRange(0, total_frames - 1)
-        self.slider.setValue(0)
+        self.slider.setValue(start_frame)
 
         self.slider.setEnabled(True)
         self.btn_track.setEnabled(True)
 
-        self._read_and_display_frame(frame_idx=0)
+        # Load and render the calculated starting frame
+        self._read_and_display_frame(frame_idx=start_frame)
 
     def _read_and_display_frame(self, frame_idx: int) -> None:
         """
@@ -626,77 +640,143 @@ class SnakeGUI(QMainWindow):
                 text=f"Failed to load CSV: {e}",
             )
 
+    def _execute_tracking(self, frame_indices: list[int]) -> None:
+        """
+        Internal loop to apply snake tracking over a sequence of frames.
+
+        Parameters
+        ----------
+        frame_indices : list[int]
+            The sequence of frame indices to process sequentially.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui._execute_tracking(frame_indices=[10, 11, 12])
+        """
+        # Seed the optimization with the current anchor positions
+        current_pts: np.ndarray = np.array(
+            object=self.anchors,
+            dtype=np.float64
+        )
+        current_pts = np.ascontiguousarray(a=current_pts)
+        n_anchors: int = current_pts.shape[0]
+
+        # Define the local search window size for the snake algorithm
+        delta: np.ndarray = np.full(
+            shape=n_anchors,
+            fill_value=10,
+            dtype=np.int32
+        )
+
+        # Algorithm parameters (internal weighting)
+        band_penalty: float = 1.0
+        alpha: float = 0.5
+        lambda1: float = 0.5
+        use_band_energy: int = 0
+
+        for frame_idx in frame_indices:
+            # Update the slider; this triggers frame loading via signals
+            self.slider.setValue(frame_idx)
+            QApplication.processEvents()
+
+            if self.frame is None:
+                continue
+
+            # Calculate gradient energy for the new frame
+            img_gray: np.ndarray = np.mean(a=self.frame, axis=2)
+            img_double: np.ndarray = np.ascontiguousarray(
+                a=img_gray,
+                dtype=np.float64
+            )
+            egrad: np.ndarray = self._compute_egrad(img=img_double)
+
+            # Perform the deformation based on the energy map
+            results = make_snake(
+                img_double,
+                egrad,
+                current_pts,
+                delta,
+                band_penalty,
+                alpha,
+                lambda1,
+                use_band_energy
+            )
+
+            # Reshape coordinates if returned as a flat array
+            tracked_pts: np.ndarray = results[0]
+            if tracked_pts.ndim == 1:
+                current_pts = tracked_pts.reshape(n_anchors, 2)
+            else:
+                current_pts = tracked_pts
+
+            # Store the result and trigger spline recalculation/history save
+            self.anchors = current_pts.tolist()
+            self._update_spline()
+
     def run_tracking(self) -> None:
         """
-        Run the active contour (snake) tracking on the whole video.
+        Run the active contour tracking both forward and backward.
+
+        Starts from the current slider position and propagates the
+        contour towards the end of the video, then returns to the
+        manual starting point and propagates towards the beginning.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui.run_tracking()
         """
         if not self.anchors or self.container is None:
             return
 
-        # 1. Disable navigation during tracking
+        # Prevent user interference during the automated process
         self.slider.setEnabled(False)
         self.points_input.setEnabled(False)
         self.btn_track.setEnabled(False)
 
         self._is_tracking = True
 
+        # Capture initial state to reset for the second (backward) pass
         start_idx: int = self.slider.value()
-        end_idx: int = self.slider.maximum()
+        init_anchors: list[list[float]] = [list(a) for a in self.anchors]
 
-        # 2. Initialize snake parameters
-        current_pts: np.ndarray = np.array(
-            object=self.anchors, dtype=np.float64
-        )
-        current_pts = np.ascontiguousarray(a=current_pts)
-        n_anchors: int = current_pts.shape[0]
-
-        delta: np.ndarray = np.full(
-            shape=n_anchors, fill_value=10, dtype=np.int32
-        )
-
-        band_penalty: float = 1.0
-        alpha: float = 0.5
-        lambda1: float = 0.5
-        use_band_energy: int = 0
-
-        # 3. Process each frame sequentially
         try:
-            for frame_idx in range(start_idx, end_idx + 1):
-                self.slider.setValue(frame_idx)
-                QApplication.processEvents()
+            # 1. Forward Pass: Process from next frame to video end
+            max_idx: int = self.slider.maximum()
+            fwd_range: list[int] = list(range(start_idx + 1, max_idx + 1))
+            if fwd_range:
+                self._execute_tracking(frame_indices=fwd_range)
 
-                if self.frame is None:
-                    continue
+            # 2. Reset State: Return to the user-defined starting point
+            self.anchors = [list(a) for a in init_anchors]
+            self._read_and_display_frame(frame_idx=start_idx)
+            self._update_spline()
 
-                img_gray: np.ndarray = np.mean(a=self.frame, axis=2)
-                img_double: np.ndarray = np.ascontiguousarray(
-                    a=img_gray, dtype=np.float64
-                )
-                egrad: np.ndarray = self._compute_egrad(img=img_double)
-
-                results = make_snake(
-                    img_double, egrad, current_pts, delta,
-                    band_penalty, alpha, lambda1, use_band_energy
-                )
-
-                tracked_pts: np.ndarray = results[0]
-                if tracked_pts.ndim == 1:
-                    current_pts = tracked_pts.reshape(n_anchors, 2)
-                else:
-                    current_pts = tracked_pts
-
-                # 4. Update state; _update_spline() will auto-save to history
-                self.anchors = current_pts.tolist()
-                self._update_spline()
+            # 3. Backward Pass: Process from previous frame to video start
+            back_range: list[int] = list(range(start_idx - 1, -1, -1))
+            if back_range:
+                self._execute_tracking(frame_indices=back_range)
 
         except Exception as e:
-            print(f"Tracking interrupted at frame {frame_idx}: {e}")
+            # Standard output for errors during headless iteration
+            print(f"Tracking sequence failed: {e}")
 
         finally:
+            # Restore UI functionality and return to start for verification
             self._is_tracking = False
             self.slider.setEnabled(True)
             self.points_input.setEnabled(True)
             self.btn_track.setEnabled(True)
+            self.slider.setValue(start_idx)
 
 
 def launch_gui() -> None:
