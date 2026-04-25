@@ -64,14 +64,14 @@ jobs:
             echo "The new version $NEW_VERSION is greater than the latest version $LATEST_VERSION on PyPI."
           fi
 
-  setup_and_build:
+  build_sdist:
     needs: [details, check_pypi]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
@@ -80,30 +80,51 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Build source and wheel distribution
+      - name: Build source distribution (sdist)
         run: |
-          uv build
+          uv build --sdist
 
-      - name: Upload artifacts
+      - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: dist-sdist
+          path: dist/*.tar.gz
+
+  build_wheels:
+    needs: [details, check_pypi]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels using cibuildwheel
+        uses: pypa/cibuildwheel@v2.22.0
+        env:
+          # CIBW_BUILD: "cp313-*" # Remove this line if you want to build for Python 3.8-3.12 too!
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
 
   pypi_publish:
     name: Upload release to PyPI
-    needs: [setup_and_build, details]
+    needs: [build_sdist, build_wheels, details, pypi_publish]
     runs-on: ubuntu-latest
     environment:
       name: pypi
     permissions:
       id-token: write
     steps:
-      - name: Download artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: dist
+          pattern: dist-*
           path: dist/
+          merge-multiple: true
 
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

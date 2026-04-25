@@ -31,6 +31,21 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - v1.0 will be released after documentation is updated and functionality has
   been integration tested.
 
+## [0.3.1] - 2026-04-25
+
+### Highlights
+
+- Fix PyPi release bug
+
+### Added
+
+- Python wheels for windows and macos and various linuxes.
+
+### Bugs 
+
+- The gui focus can get stuck in the parameter edit fields preventing use of
+  left and right arrow keys to flip through the frames.
+
 
 ## [0.3.0] - 2026-04-25
 
