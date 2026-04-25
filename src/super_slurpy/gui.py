@@ -21,11 +21,10 @@ from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
     QHBoxLayout,
-    QLabel,
+    QInputDialog,
     QMainWindow,
     QPushButton,
     QSlider,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -139,17 +138,10 @@ class SnakeGUI(QMainWindow):
         )
         self.btn_load.clicked.connect(slot=self.load_results_from_csv)
 
-        self.points_input = QSpinBox(parent=main_widget)
-        self.points_input.setRange(3, 500)
-        self.points_input.setValue(DEFAULT_SPLINE_POINTS)
-        self.points_input.valueChanged.connect(slot=self._update_spline)
-
         toolbar.addWidget(self.btn_open)
         toolbar.addWidget(self.btn_track)
         toolbar.addWidget(self.btn_save)
         toolbar.addWidget(self.btn_load)
-        toolbar.addWidget(QLabel(text="Spline Points:"))
-        toolbar.addWidget(self.points_input)
         layout.addLayout(toolbar)
 
         # Frame navigation slider
@@ -166,12 +158,7 @@ class SnakeGUI(QMainWindow):
         # Remove all margins and padding around the axes to ensure the
         # image fills the canvas widget as much as possible.
         self.figure.subplots_adjust(
-            left=0,
-            right=1,
-            bottom=0,
-            top=1,
-            wspace=0,
-            hspace=0
+            left=0, right=1, bottom=0, top=1, wspace=0, hspace=0
         )
 
         self.ax.set_axis_off()
@@ -179,16 +166,13 @@ class SnakeGUI(QMainWindow):
 
         # Connect Matplotlib interactive events
         self.canvas.mpl_connect(
-            s="button_press_event",
-            func=self.on_mouse_press
+            s="button_press_event", func=self.on_mouse_press
         )
         self.canvas.mpl_connect(
-            s="motion_notify_event",
-            func=self.on_mouse_motion
+            s="motion_notify_event", func=self.on_mouse_motion
         )
         self.canvas.mpl_connect(
-            s="button_release_event",
-            func=self.on_mouse_release
+            s="button_release_event", func=self.on_mouse_release
         )
 
         # Disable focus on buttons and such in favour of using the arrow keys
@@ -250,6 +234,14 @@ class SnakeGUI(QMainWindow):
         self.action_track.triggered.connect(slot=self.run_tracking)
         self.action_track.setEnabled(False)
         action_menu.addAction(self.action_track)
+
+        self.action_resample = QAction(
+            text="&Resample Splines...", parent=self
+        )
+        self.action_resample.setShortcut(QKeySequence("Ctrl+R"))
+        self.action_resample.triggered.connect(slot=self.resample_splines)
+        self.action_resample.setEnabled(False)
+        action_menu.addAction(self.action_resample)
 
         # 3. Navigation Menu Setup
         nav_menu = menu_bar.addMenu("&Navigation")
@@ -459,6 +451,10 @@ class SnakeGUI(QMainWindow):
         """
         n_anchors: int = len(self.anchors)
 
+        # Enable or disable the resample action based on spline existence
+        if hasattr(self, "action_resample"):
+            self.action_resample.setEnabled(n_anchors >= 2)
+
         # Auto-save current anchors into the history map
         self.anchors_history[self.current_frame_idx] = [
             list(pt) for pt in self.anchors
@@ -470,7 +466,7 @@ class SnakeGUI(QMainWindow):
             return
 
         pts: np.ndarray = np.array(object=self.anchors)
-        n_points: int = self.points_input.value()
+        n_points: int = DEFAULT_SPLINE_POINTS
 
         # Calculate cumulative distances to parameterize the spline
         diffs: np.ndarray = np.diff(a=pts, axis=0)
@@ -832,9 +828,9 @@ class SnakeGUI(QMainWindow):
 
         # Prevent user interference during the automated process
         self.slider.setEnabled(False)
-        self.points_input.setEnabled(False)
         self.btn_track.setEnabled(False)
         self.action_track.setEnabled(False)
+        self.action_resample.setEnabled(False)
 
         self._is_tracking = True
 
@@ -861,10 +857,83 @@ class SnakeGUI(QMainWindow):
         # Restore UI functionality and return to start for verification
         self._is_tracking = False
         self.slider.setEnabled(True)
-        self.points_input.setEnabled(True)
         self.btn_track.setEnabled(True)
         self.action_track.setEnabled(True)
+        self.action_resample.setEnabled(len(self.anchors) >= 2)
         self.slider.setValue(start_idx)
+
+    def resample_splines(self) -> None:
+        """
+        Resample all existing splines to a new number of control points.
+
+        Opens a dialog to ask the user for the desired number of points.
+        Interpolates the existing anchors for every tracked frame to
+        produce the new, equidistantly spaced control points.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> gui = SnakeGUI()
+        >>> gui.resample_splines()
+        """
+        if not self.anchors or len(self.anchors) < 2:
+            return
+
+        current_count: int = len(self.anchors)
+
+        # Ask user for the new number of control points
+        num_points, ok = QInputDialog.getInt(
+            self,
+            "Resample Splines",
+            "Number of control points:",
+            current_count,
+            2,
+            500,
+        )
+
+        if not ok or num_points == current_count:
+            return
+
+        # Iterate through history and resample each frame's anchors
+        for frame_idx, pts_list in self.anchors_history.items():
+            pts: np.ndarray = np.array(object=pts_list, dtype=np.float64)
+            n_pts: int = len(pts)
+            if n_pts < 2:
+                continue
+
+            # Parameterize the existing spline
+            diffs: np.ndarray = np.diff(a=pts, axis=0)
+            dists: np.ndarray = np.linalg.norm(x=diffs, axis=1)
+            k: np.ndarray = np.insert(
+                arr=np.cumsum(a=dists), obj=0, values=0.0
+            )
+
+            k_new: np.ndarray = np.linspace(
+                start=0, stop=k[-1], num=num_points
+            )
+
+            # Interpolate to find the new evenly spaced points
+            if n_pts == 2:
+                interp_func = interp1d(x=k, y=pts, axis=0)
+            else:
+                interp_func = PchipInterpolator(x=k, y=pts, axis=0)
+
+            new_pts: np.ndarray = interp_func(x=k_new)
+            self.anchors_history[frame_idx] = new_pts.tolist()
+
+        # Update current frame's anchors to reflect changes immediately
+        if self.current_frame_idx in self.anchors_history:
+            self.anchors = [
+                list(pt) for pt in self.anchors_history[self.current_frame_idx]
+            ]
+
+        self._update_spline()
+        self.statusBar().showMessage(
+            f"Success: Resampled splines to {num_points} control points.", 5000
+        )
 
 
 def launch_gui() -> None:

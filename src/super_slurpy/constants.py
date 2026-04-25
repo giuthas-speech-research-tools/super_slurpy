@@ -26,7 +26,7 @@ CONFIG_FILENAME: str = "slurpy.yaml"
 USER_DIR_NAME: str = ".slurpy"
 
 # Default number of interpolated spline points
-DEFAULT_SPLINE_POINTS: int = 50
+DEFAULT_SPLINE_POINTS: int = 20
 
 # Maximum distance in pixels to register a click on an existing anchor
 ANCHOR_CLICK_RADIUS: float = 15.0
