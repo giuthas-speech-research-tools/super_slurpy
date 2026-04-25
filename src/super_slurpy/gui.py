@@ -16,7 +16,7 @@ import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -98,7 +98,7 @@ class SnakeGUI(QMainWindow):
         self._is_tracking: bool = False
 
         self._init_ui()
-        self._init_shortcuts()
+        self._init_menus()
 
     def _init_ui(self) -> None:
         """
@@ -198,57 +198,71 @@ class SnakeGUI(QMainWindow):
         self.btn_track.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_save.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
-    def _init_shortcuts(self) -> None:
+    def _init_menus(self) -> None:
         """
-        Initialize application-wide keyboard shortcuts.
+        Initialize the application menu bar and its corresponding actions.
 
-        Binds key sequences (like Ctrl+O, Ctrl+S) to their
-        respective class methods to improve user efficiency.
+        Creates 'File', 'Action', and 'Navigation' menus. Links the existing
+        keyboard shortcuts to these menu items for better visibility. Replaces
+        the standalone shortcuts to prevent duplicate key bindings.
 
         Returns
         -------
         None
-
-        Examples
-        --------
-        >>> gui = SnakeGUI()
-        >>> gui._init_shortcuts()
         """
-        # Bind application exit to Ctrl+Q and Ctrl+W
-        shortcut_quit = QShortcut(QKeySequence("Ctrl+Q"), self)
-        shortcut_quit.activated.connect(slot=self.close)
+        menu_bar = self.menuBar()
 
-        shortcut_close = QShortcut(QKeySequence("Ctrl+W"), self)
-        shortcut_close.activated.connect(slot=self.close)
+        # 1. File Menu Setup
+        file_menu = menu_bar.addMenu("&File")
 
-        # Bind file opening and tracking actions
-        shortcut_open = QShortcut(QKeySequence("Ctrl+O"), self)
-        shortcut_open.activated.connect(slot=self.open_video)
+        action_open = QAction(text="&Open Video", parent=self)
+        action_open.setShortcut(QKeySequence("Ctrl+O"))
+        action_open.triggered.connect(slot=self.open_video)
+        file_menu.addAction(action_open)
 
-        shortcut_track = QShortcut(QKeySequence("Ctrl+T"), self)
-        shortcut_track.activated.connect(slot=self.run_tracking)
+        action_save = QAction(text="&Save CSV", parent=self)
+        action_save.setShortcut(QKeySequence("Ctrl+S"))
+        action_save.triggered.connect(slot=self.save_results_to_csv)
+        file_menu.addAction(action_save)
 
-        # Bind CSV input/output actions
-        shortcut_save = QShortcut(QKeySequence("Ctrl+S"), self)
-        shortcut_save.activated.connect(slot=self.save_results_to_csv)
+        action_load = QAction(text="&Load CSV", parent=self)
+        action_load.setShortcut(QKeySequence("Ctrl+L"))
+        action_load.triggered.connect(slot=self.load_results_from_csv)
+        file_menu.addAction(action_load)
 
-        shortcut_load = QShortcut(QKeySequence("Ctrl+L"), self)
-        shortcut_load.activated.connect(slot=self.load_results_from_csv)
+        file_menu.addSeparator()
 
-        # Initialize keyboard shortcuts for frame navigation.
-        # WindowShortcut context ensures these work even when
-        # buttons or toolbars have focus.
-        shortcut_left_key = QShortcut(
-            QKeySequence(Qt.Key.Key_Left),
-            self
-        )
-        shortcut_left_key.activated.connect(self._prev_frame)
+        action_close = QAction(text="&Close Window", parent=self)
+        action_close.setShortcut(QKeySequence("Ctrl+W"))
+        action_close.triggered.connect(slot=self.close)
+        file_menu.addAction(action_close)
 
-        shortcut_right_key = QShortcut(
-            QKeySequence(Qt.Key.Key_Right),
-            self
-        )
-        shortcut_right_key.activated.connect(self._next_frame)
+        action_quit = QAction(text="&Quit", parent=self)
+        action_quit.setShortcut(QKeySequence("Ctrl+Q"))
+        action_quit.triggered.connect(slot=self.close)
+        file_menu.addAction(action_quit)
+
+        # 2. Action Menu Setup
+        action_menu = menu_bar.addMenu("&Action")
+
+        self.action_track = QAction(text="&Track", parent=self)
+        self.action_track.setShortcut(QKeySequence("Ctrl+T"))
+        self.action_track.triggered.connect(slot=self.run_tracking)
+        self.action_track.setEnabled(False)
+        action_menu.addAction(self.action_track)
+
+        # 3. Navigation Menu Setup
+        nav_menu = menu_bar.addMenu("&Navigation")
+
+        action_prev = QAction(text="&Previous Frame", parent=self)
+        action_prev.setShortcut(QKeySequence(Qt.Key.Key_Left))
+        action_prev.triggered.connect(slot=self._prev_frame)
+        nav_menu.addAction(action_prev)
+
+        action_next = QAction(text="&Next Frame", parent=self)
+        action_next.setShortcut(QKeySequence(Qt.Key.Key_Right))
+        action_next.triggered.connect(slot=self._next_frame)
+        nav_menu.addAction(action_next)
 
     def _next_frame(self) -> None:
         """
@@ -369,6 +383,7 @@ class SnakeGUI(QMainWindow):
 
         self.slider.setEnabled(True)
         self.btn_track.setEnabled(True)
+        self.action_track.setEnabled(True)
 
         # Load and render the calculated starting frame
         self._read_and_display_frame(frame_idx=start_frame)
@@ -819,6 +834,7 @@ class SnakeGUI(QMainWindow):
         self.slider.setEnabled(False)
         self.points_input.setEnabled(False)
         self.btn_track.setEnabled(False)
+        self.action_track.setEnabled(False)
 
         self._is_tracking = True
 
@@ -847,6 +863,7 @@ class SnakeGUI(QMainWindow):
         self.slider.setEnabled(True)
         self.points_input.setEnabled(True)
         self.btn_track.setEnabled(True)
+        self.action_track.setEnabled(True)
         self.slider.setValue(start_idx)
 
 
