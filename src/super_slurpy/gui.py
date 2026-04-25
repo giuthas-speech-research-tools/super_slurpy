@@ -749,34 +749,28 @@ class SnakeGUI(QMainWindow):
         start_idx: int = self.slider.value()
         init_anchors: list[list[float]] = [list(a) for a in self.anchors]
 
-        try:
-            # 1. Forward Pass: Process from next frame to video end
-            max_idx: int = self.slider.maximum()
-            fwd_range: list[int] = list(range(start_idx + 1, max_idx + 1))
-            if fwd_range:
-                self._execute_tracking(frame_indices=fwd_range)
+        # 1. Forward Pass: Process from next frame to video end
+        max_idx: int = self.slider.maximum()
+        fwd_range: list[int] = list(range(start_idx + 1, max_idx + 1))
+        if fwd_range:
+            self._execute_tracking(frame_indices=fwd_range)
 
-            # 2. Reset State: Return to the user-defined starting point
-            self.anchors = [list(a) for a in init_anchors]
-            self._read_and_display_frame(frame_idx=start_idx)
-            self._update_spline()
+        # 2. Reset State: Return to the user-defined starting point
+        self.anchors = [list(a) for a in init_anchors]
+        self._read_and_display_frame(frame_idx=start_idx)
+        self._update_spline()
 
-            # 3. Backward Pass: Process from previous frame to video start
-            back_range: list[int] = list(range(start_idx - 1, -1, -1))
-            if back_range:
-                self._execute_tracking(frame_indices=back_range)
+        # 3. Backward Pass: Process from previous frame to video start
+        back_range: list[int] = list(range(start_idx - 1, -1, -1))
+        if back_range:
+            self._execute_tracking(frame_indices=back_range)
 
-        except Exception as e:
-            # Standard output for errors during headless iteration
-            print(f"Tracking sequence failed: {e}")
-
-        finally:
-            # Restore UI functionality and return to start for verification
-            self._is_tracking = False
-            self.slider.setEnabled(True)
-            self.points_input.setEnabled(True)
-            self.btn_track.setEnabled(True)
-            self.slider.setValue(start_idx)
+        # Restore UI functionality and return to start for verification
+        self._is_tracking = False
+        self.slider.setEnabled(True)
+        self.points_input.setEnabled(True)
+        self.btn_track.setEnabled(True)
+        self.slider.setValue(start_idx)
 
 
 def launch_gui() -> None:
