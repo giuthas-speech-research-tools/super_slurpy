@@ -143,3 +143,33 @@ def load_config(config_dir: Path | None = None) -> SlurpyConfig:
             raw_config = yaml.safe_load(stream=content) or {}
 
     return SlurpyConfig(**raw_config)
+
+
+def load_resource_config() -> SlurpyConfig:
+    """
+    Load the default configuration strictly from the package resource.
+
+    Returns
+    -------
+    SlurpyConfig
+        The configuration populated exclusively from the internal YAML.
+
+    Examples
+    --------
+    >>> from super_slurpy.config import load_resource_config
+    >>> default_config = load_resource_config()
+    >>> print(default_config.snake.alpha)
+    0.1
+    """
+    # What: Target the internal package resource directly.
+    # Why: Bypasses user and local files for a guaranteed factory reset.
+    resource_path = importlib.resources.files(
+        anchor="super_slurpy"
+    ) / CONFIG_FILENAME
+
+    raw_config: dict[str, Any] = {}
+    if resource_path.is_file():
+        content: str = resource_path.read_text(encoding="utf-8")
+        raw_config = yaml.safe_load(stream=content) or {}
+
+    return SlurpyConfig(**raw_config)

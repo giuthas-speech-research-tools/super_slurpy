@@ -16,7 +16,7 @@ import numpy as np
 from scipy.interpolate import PchipInterpolator, interp1d
 from scipy.ndimage import gaussian_filter1d
 
-from super_slurpy.config import load_config
+from super_slurpy.config import load_config, load_resource_config
 from super_slurpy.constants import (
     DEFAULT_SEED_SPLINE,
     DEFAULT_SPLINE_POINTS,
@@ -158,8 +158,23 @@ class SlurpyModel:
         if not path.is_file():
             raise FileNotFoundError(f"Seed file not found: {file_path}")
 
-        # Parse the extracted string text
         self._parse_seed_csv(content=path.read_text(encoding="utf-8"))
+
+    def reset_snake_parameters(self) -> None:
+        """
+        Reset the active contour parameters to the package defaults.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> model = SlurpyModel()
+        >>> model.reset_snake_parameters()
+        """
+        default_config = load_resource_config()
+        self.config.snake = default_config.snake
 
     def open_video(self, file_path: str) -> int:
         """

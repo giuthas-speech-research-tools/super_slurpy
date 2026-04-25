@@ -21,12 +21,14 @@ import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction, QKeySequence
+from PyQt6.QtGui import QAction, QDoubleValidator, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
     QHBoxLayout,
     QInputDialog,
+    QLabel,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -181,6 +183,8 @@ class SlurpyGui(QMainWindow):
             s="button_release_event", func=self.on_mouse_release
         )
 
+        self._init_snake_controls(layout=layout)
+
         # What: Remove focus policy from interactive buttons.
         # Why: Prevents arrow keys from shifting focus instead of
         # changing frames.
@@ -306,6 +310,110 @@ class SlurpyGui(QMainWindow):
         action_next.setShortcut(QKeySequence(Qt.Key.Key_Right))
         action_next.triggered.connect(slot=self._next_frame)
         nav_menu.addAction(action_next)
+
+    def _init_snake_controls(self, layout: QVBoxLayout) -> None:
+        """
+        Construct and bind text entry controls for the snake parameters.
+
+        Parameters
+        ----------
+        layout : QVBoxLayout
+            The parent layout to append the controls into.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> # Called internally during UI construction
+        """
+        controls_layout = QHBoxLayout()
+
+        # What: Ensure inputs are positive floating-point numbers.
+        # Why: Negative weights will destabilize the energy function.
+        validator = QDoubleValidator(
+            bottom=0.0, top=float("inf"), decimals=4, parent=self
+        )
+        validator.setNotation(
+            QDoubleValidator.Notation.StandardNotation
+        )
+
+        lbl_alpha = QLabel(text="Alpha:", parent=self)
+        self.edit_alpha = QLineEdit(parent=self)
+        self.edit_alpha.setValidator(validator)
+        self.edit_alpha.setText(str(self.model.config.snake.alpha))
+        self.edit_alpha.editingFinished.connect(slot=self._update_params)
+
+        lbl_lambda1 = QLabel(text="Lambda1:", parent=self)
+        self.edit_lambda1 = QLineEdit(parent=self)
+        self.edit_lambda1.setValidator(validator)
+        self.edit_lambda1.setText(str(self.model.config.snake.lambda1))
+        self.edit_lambda1.editingFinished.connect(slot=self._update_params)
+
+        lbl_band = QLabel(text="Band Penalty:", parent=self)
+        self.edit_band = QLineEdit(parent=self)
+        self.edit_band.setValidator(validator)
+        self.edit_band.setText(str(self.model.config.snake.band_penalty))
+        self.edit_band.editingFinished.connect(slot=self._update_params)
+
+        self.btn_reset_params = QPushButton(
+            text="Reset Params", parent=self
+        )
+        self.btn_reset_params.clicked.connect(slot=self._reset_params)
+
+        controls_layout.addWidget(lbl_alpha)
+        controls_layout.addWidget(self.edit_alpha)
+        controls_layout.addWidget(lbl_lambda1)
+        controls_layout.addWidget(self.edit_lambda1)
+        controls_layout.addWidget(lbl_band)
+        controls_layout.addWidget(self.edit_band)
+        controls_layout.addWidget(self.btn_reset_params)
+
+        layout.addLayout(controls_layout)
+
+    def _update_params(self) -> None:
+        """
+        Parse valid text entries back into the model configuration.
+
+        Returns
+        -------
+        None
+        """
+        # What: Safely cast text to floats and update the model state.
+        # Why: Applies the user's manual parameter tuning to the algorithm.
+        try:
+            alpha = float(self.edit_alpha.text())
+            lambda1 = float(self.edit_lambda1.text())
+            band = float(self.edit_band.text())
+
+            self.model.config.snake.alpha = alpha
+            self.model.config.snake.lambda1 = lambda1
+            self.model.config.snake.band_penalty = band
+        except ValueError:
+            self.statusBar().showMessage(
+                "Error: Parameter fields cannot be empty.", 5000
+            )
+
+    def _reset_params(self) -> None:
+        """
+        Restore the parameter states to their factory defaults.
+
+        Returns
+        -------
+        None
+        """
+        # What: Overwrite current parameters with resource defaults.
+        # Why: Allows quick recovery if the manual tracking breaks.
+        self.model.reset_snake_parameters()
+
+        self.edit_alpha.setText(str(self.model.config.snake.alpha))
+        self.edit_lambda1.setText(str(self.model.config.snake.lambda1))
+        self.edit_band.setText(str(self.model.config.snake.band_penalty))
+
+        self.statusBar().showMessage(
+            "Success: Snake parameters reset to resource defaults.", 5000
+        )
 
     def _next_frame(self) -> None:
         """
