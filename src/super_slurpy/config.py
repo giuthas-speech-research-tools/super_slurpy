@@ -25,6 +25,15 @@ from super_slurpy.constants import (
     USER_DIR_NAME,
 )
 
+__all__ = [
+    "GuiConfig",
+    "SnakeConfig",
+    "ParticleConfig",
+    "SlurpyConfig",
+    "load_config",
+    "load_resource_config",
+]
+
 
 class GuiConfig(BaseModel):
     """

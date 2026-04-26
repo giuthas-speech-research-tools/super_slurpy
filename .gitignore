@@ -2,6 +2,9 @@
 local/
 local
 
+# Generated api .rst docs
+docs/source/api
+
 # Cython auto-generated C files
 src/super_slurpy/core.c
 
