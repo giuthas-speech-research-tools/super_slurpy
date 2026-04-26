@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+<!-- 
 [//]: # (Possible headings in a release:)
 [//]: # (Highlights for shiny new features.)
 [//]: # (Added for new features.)
@@ -20,7 +21,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 [//]: # (New contributors for first contributions.)
 
 [//]: # (And of course if a version needs to be YANKED:)
-[//]: # (## [version number] [data] [YANKED])
+[//]: # (## [version number] [data] [YANKED]) 
+-->
 
 
 ## [Unreleased]
@@ -28,6 +30,18 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Added
 
 - v1.0 will be released after functionality has been integration tested.
+
+
+## [0.5.0-alpha.1] - 2026-04-26
+
+### Highlights
+
+- Test including markdown docs in sphinx generated documentation.
+
+### Bugs 
+
+- The gui focus can get stuck in the parameter edit fields preventing use of
+  left and right arrow keys to flip through the frames.
 
 
 ## [0.4.3-alpha.2] - 2026-04-26
