@@ -30,13 +30,13 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - v1.0 will be released after functionality has been integration tested.
 
 
-## [0.4.0] - 2026-04-25
+## [0.4.0] - 2026-04-26
 
 ### Highlights
 
 - API docs added to the Github pages.
 - Added previously missing functionality:
-  - PCA and motion modelling for better tracking.
+  - PCA and particle tracking for better tracking.
 
 ### Added
 
