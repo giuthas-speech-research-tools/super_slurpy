@@ -21,7 +21,7 @@ jobs:
       suffix: ${{ steps.release.outputs.suffix }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
 
       - name: Extract tag and Details
         id: release
@@ -71,10 +71,10 @@ jobs:
     needs: [details, check_pypi]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -88,7 +88,7 @@ jobs:
           uv build --sdist
 
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-sdist
           path: dist/*.tar.gz
@@ -101,7 +101,7 @@ jobs:
         python: [cp313] # Define the versions you want
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build wheels using cibuildwheel
         uses: pypa/cibuildwheel@v2.22.0
@@ -110,7 +110,7 @@ jobs:
           CIBW_SKIP: "*-musllinux*"
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-wheels-${{ matrix.os }}-${{ matrix.python }}
           path: ./wheelhouse/*.whl
@@ -144,7 +144,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4 
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
