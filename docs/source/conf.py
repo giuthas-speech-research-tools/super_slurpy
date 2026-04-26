@@ -1,3 +1,5 @@
+import tomllib
+from pathlib import Path
 
 # Optional autodoc tweaks to play nicely with Cython's C-types
 autodoc_mock_imports = []
@@ -13,7 +15,16 @@ autodoc_mock_imports = []
 project = 'slurpy'
 copyright = '2026, Pertti Palo, Catherine Laporte'
 author = 'Pertti Palo, Catherine Laporte'
-release = '0.4.0'
+# Calculate the path to pyproject.toml (assuming conf.py is in docs/source/)
+# If conf.py is just in docs/, use .parent.parent instead.
+pyproject_path = Path(__file__).resolve().parent.parent / "pyproject.toml"
+
+with open(pyproject_path, "rb") as f:
+    pyproject_data = tomllib.load(f)
+
+# Extract the version from the [project] table
+release = pyproject_data["project"]["version"]
+version = release
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
