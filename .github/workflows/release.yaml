@@ -123,7 +123,7 @@ jobs:
       id-token: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: dist-*
           path: dist/
@@ -145,7 +145,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: dist-*
           path: dist/
@@ -157,7 +157,7 @@ jobs:
         with:
           command: query
           version: latest
-          changelog: 'docs/Changelog.markdown'
+          changelog: 'docs/source/Changelog.markdown'
 
       - name: Create GitHub Release
         id: create_release
