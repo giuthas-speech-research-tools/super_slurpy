@@ -32,7 +32,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - v1.0 will be released after functionality has been integration tested.
 
 
-## [0.5.0-alpha.4] - 2026-04-26
+## [0.5.0-alpha.5] - 2026-04-26
 
 ### Highlights
 

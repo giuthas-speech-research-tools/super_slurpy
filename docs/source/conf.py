@@ -17,7 +17,8 @@ copyright = '2026, Pertti Palo, Catherine Laporte'
 author = 'Pertti Palo, Catherine Laporte'
 # Calculate the path to pyproject.toml (assuming conf.py is in docs/source/)
 # If conf.py is just in docs/, use .parent.parent instead.
-pyproject_path = Path(__file__).resolve().parent.parent / "pyproject.toml"
+pyproject_path = Path(__file__).resolve().parent.parent.parent
+pyproject_path = pyproject_path / "pyproject.toml"
 
 with open(pyproject_path, "rb") as f:
     pyproject_data = tomllib.load(f)
