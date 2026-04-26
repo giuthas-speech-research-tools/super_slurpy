@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import click
+from tqdm import tqdm
 
 from super_slurpy.constants import EXIT_MISSING_DEPS, GUI_MISSING_ERR_MSG
 from super_slurpy.model import SlurpyModel
@@ -61,31 +62,34 @@ def gui(ultrasound: str | None, seed: str | None) -> None:
 def _process_single_video(
     video_path: Path,
     seed: str | None,
-    output_path: Path | None
-) -> None:
+    output_path: Path | None = None,
+    method: str = "snake"
+) -> Path:
     """
-    Process a single video file using the active contour model.
+    Execute headless sequence tracking for a single video.
 
     Parameters
     ----------
-    video_path : Path
-        The path to the input video file.
-    seed : str | None
+    video_path : pathlib.Path
+        The absolute or relative path to the input video.
+    seed : str
         The path to the seed spline CSV file.
-    output_path : Path | None
-        The explicit output path for the tracked CSV.
+    output_path : pathlib.Path | None, optional
+        Where to save the results. If None, saves next to the video.
+    method : str, optional
+        The tracking algorithm to apply ('snake' or 'particle').
+        Defaults to 'snake'.
 
     Returns
     -------
-    None
+    Path
+        The path where the .csv was saved
     """
-    click.echo(message=f"Processing {video_path} in headless mode...")
-
     # What: Initialize the model, favoring local directory configs.
     # Why: Ensures batch processing can use different params per folder.
     model = SlurpyModel(config_dir=video_path.parent)
 
-    if seed:
+    if seed is not None:
         try:
             model.load_seed_spline_file(file_path=seed)
         except Exception as e:
@@ -105,35 +109,46 @@ def _process_single_video(
         )
         sys.exit(1)
 
-    try:
-        start_frame = model.open_video(file_path=str(video_path))
+    model.open_video(file_path=str(video_path))
 
-        # Apply the seed spline to the starting frame
-        model.anchors = [list(pt) for pt in model.seed_spline]
-        model.read_frame(frame_idx=start_frame)
-        model.update_spline()
+    # Determine target starting frame based on config
+    start_idx: int = 0
+    if model.config.gui.default_frame is not None:
+        start_idx = model.config.gui.default_frame
+    elif model.config.gui.proportional_frame is not None:
+        start_idx = int(
+            (model.total_frames - 1) * model.config.gui.proportional_frame
+        )
 
-        click.echo(message=f"Starting tracking from frame {start_frame}...")
-        model.run_tracking(start_idx=start_frame)
+    match method:
+        case "particle":
+            tracking_generator = model.run_particle_tracking(
+                start_idx=start_idx)
+        case "snake":
+            tracking_generator = model.run_snake_tracking(start_idx=start_idx)
+        case _:
+            click.secho(
+                message=f"Unrecognised tracking method: {method}", fg="red")
+            sys.exit()
 
-        # What: Resolve the final output path.
-        # Why: Respect explicit targets or fallback to a standard suffix.
-        out_path = output_path if output_path else video_path.with_name(
+    # tracking_generator does the work while tqdm provides a progress bar.
+    for _ in tqdm(
+        iterable=tracking_generator,
+        total=model.total_frames,
+        desc=video_path.name,
+        unit="frames",
+        leave=False
+    ):
+        pass
+
+    # Resolve output path
+    if output_path is None:
+        output_path = video_path.with_name(
             f"{video_path.stem}_tracked.csv"
         )
 
-        model.save_csv(file_path=str(out_path))
-        click.secho(
-            message=f"Successfully saved results to {out_path}",
-            fg="green"
-        )
-
-    except Exception as e:
-        click.secho(
-            message=f"Error during processing {video_path}: {e}",
-            fg="red",
-            err=True
-        )
+    model.save_csv(file_path=str(output_path))
+    return output_path
 
 
 @run_cli.command()
@@ -149,21 +164,32 @@ def _process_single_video(
     "-o",
     type=click.Path(),
     help=(
-        "Output CSV path (single file) or directory (batch). "
-        "Defaults to input_path with _tracked.csv suffix."
+        "Target directory for mass processing, "
+        "or target file for single files."
     ),
 )
-def process(input_path: str, seed: str | None, output: str | None) -> None:
+@click.option(
+    "--method",
+    "-m",
+    type=click.Choice(choices=["snake", "particle"], case_sensitive=False),
+    default="snake",
+    show_default=True,
+    help="The tracking algorithm to execute.",
+)
+def track(
+    input_path: str,
+    seed: str | None,
+    output: str | None,
+    method: str
+) -> None:
     """
-    Process video files without launching the GUI.
+    Headless batch tracking of ultrasound sequence boundaries.
 
-    INPUT_PATH can be a single video file or a directory containing
-    multiple videos. If a directory is provided, it will scan for
-    standard video formats (.mp4, .avi, .mkv) and process them
-    sequentially.
+    INPUT_PATH can be a direct path to a video file (.mp4, .avi) or a
+    directory containing multiple videos to evaluate in sequence.
 
-    This command is ideal for scripting, background tasks, or mass
-    evaluations.
+    SEED must point to a valid comma separated seed spline file.
+    Ideal for scripting, background tasks, or mass evaluations.
     """
     target_path = Path(input_path)
 
@@ -171,11 +197,13 @@ def process(input_path: str, seed: str | None, output: str | None) -> None:
     # Why: Reuses the same command gracefully for mass processing.
     if target_path.is_file():
         out_path = Path(output) if output else None
-        _process_single_video(
+        out_path = _process_single_video(
             video_path=target_path,
             seed=seed,
-            output_path=out_path
+            output_path=out_path,
+            method=method
         )
+        written_files: list[Path] = [out_path,]
 
     elif target_path.is_dir():
         click.echo(
@@ -198,13 +226,28 @@ def process(input_path: str, seed: str | None, output: str | None) -> None:
         if out_dir and not out_dir.exists():
             out_dir.mkdir(parents=True, exist_ok=True)
 
-        for video_file in video_files:
+        written_files: list[Path] = []
+        for video_file in tqdm(
+            iterable=video_files,
+            desc="Batch processing videos",
+            unit="video"
+        ):
             file_out = (
                 out_dir / f"{video_file.stem}_tracked.csv"
                 if out_dir else None
             )
-            _process_single_video(
+            written_file = _process_single_video(
                 video_path=video_file,
                 seed=seed,
-                output_path=file_out
+                output_path=file_out,
+                method=method
             )
+            written_files.append(written_file)
+
+    click.secho(
+        message="\nBatch processing complete. Generated files:",
+        fg="green",
+        bold=True
+    )
+    for f in written_files:
+        click.echo(message=f"  - {f.resolve()}")
