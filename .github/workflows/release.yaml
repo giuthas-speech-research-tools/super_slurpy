@@ -8,6 +8,7 @@ on:
 env:
   PACKAGE_NAME: "super_slurpy"
   OWNER: "Pertti Palo"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   details:

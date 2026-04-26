@@ -10,6 +10,7 @@ on:
 env:
   PACKAGE_NAME: "super_slurpy"
   OWNER: "Pertti Palo"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   details:
@@ -66,14 +67,14 @@ jobs:
             echo "The new version $NEW_VERSION is greater than the latest version $LATEST_VERSION on TestPyPI."
           fi
 
-  setup_and_build:
-    runs-on: ubuntu-latest
+  build_sdist:
     needs: [details, check_pypi]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
@@ -82,53 +83,77 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Build source and wheel distribution
+      - name: Build source distribution (sdist)
         run: |
-          uv build
+          uv build --sdist
 
-      - name: Upload artifacts
+      - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
-          name: python-package-distributions
-          path: dist/
+          name: dist-sdist
+          path: dist/*.tar.gz
+
+  build_wheels:
+    needs: [details, check_pypi]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: [cp313] # Define the versions you want
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels using cibuildwheel
+        uses: pypa/cibuildwheel@v2.22.0
+        env:
+          CIBW_BUILD: "${{ matrix.python }}-*" # Only build the specific matrix version
+          CIBW_SKIP: "*-musllinux*"
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-wheels-${{ matrix.os }}-${{ matrix.python }}
+          path: ./wheelhouse/*.whl
 
   testpypi_publish:
     name: Publish to TestPyPI
-    needs: [details, setup_and_build]
+    needs: [build_sdist, build_wheels, details]
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/<package-name>
+      url: https://test.pypi.org/p/super-slurpy
     permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing
+      id-token: write  
     steps:
-    - name: Download all the dists
+    - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
-        name: python-package-distributions
+        pattern: dist-*
         path: dist/
+        merge-multiple: true
     - name: Publish distribution to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
 
-  github_release:
+github_release:
     name: Create GitHub Release
-    needs: [details, setup_and_build, testpypi_publish]
+    needs: [build_sdist, build_wheels, details, testpypi_publish] 
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 
         with:
           fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: python-package-distributions
+          pattern: dist-*
           path: dist/
+          merge-multiple: true
 
       - name: Get latest release info
         id: query-release-info

@@ -9,6 +9,11 @@ on:
       - '.github/workflows/docs.yaml'
   workflow_dispatch:
 
+env:
+  PACKAGE_NAME: "super_slurpy"
+  OWNER: "Pertti Palo"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
