@@ -136,7 +136,7 @@ jobs:
       with:
         repository-url: https://test.pypi.org/legacy/
 
-github_release:
+  github_release:
     name: Create GitHub Release
     needs: [build_sdist, build_wheels, details, testpypi_publish] 
     runs-on: ubuntu-latest
