@@ -30,6 +30,18 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - v1.0 will be released after functionality has been integration tested.
 
 
+## [0.4.3-alpha.1] - 2026-04-26
+
+### Highlights
+
+- Test updates to release workflows.
+
+### Bugs 
+
+- The gui focus can get stuck in the parameter edit fields preventing use of
+  left and right arrow keys to flip through the frames.
+
+
 ## [0.4.2] - 2026-04-26
 
 ### Highlights
