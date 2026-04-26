@@ -8,8 +8,8 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+"
 
 env:
-  PACKAGE_NAME: "<PACKAGE_NAME>"
-  OWNER: "<OWNER>"
+  PACKAGE_NAME: "super_slurpy"
+  OWNER: "Pertti Palo"
 
 jobs:
   details:
@@ -28,7 +28,7 @@ jobs:
           if [ "${{ github.ref_type }}" = "tag" ]; then
             TAG_NAME=${GITHUB_REF#refs/tags/}
             NEW_VERSION=$(echo $TAG_NAME | awk -F'v' '{print $2}')
-            SUFFIX=$(echo $TAG_NAME | grep -oP '[alphbetrc]+[0-9]+' || echo "")
+            SUFFIX=$(echo $TAG_NAME | grep -oP '(alpha|beta|rc)\.[0-9]+' || echo "")
             echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
             echo "suffix=$SUFFIX" >> "$GITHUB_OUTPUT"
             echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
