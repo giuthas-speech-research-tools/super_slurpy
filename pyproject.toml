@@ -1,6 +1,6 @@
 [project]
 name = "super-slurpy"
-version = "0.4.1"
+version = "0.4.2"
 description = "Super SLURPy: Python version of Speech and Language Ultrasound Research Package"
 readme = "README.md"
 authors = [

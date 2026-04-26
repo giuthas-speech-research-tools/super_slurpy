@@ -30,6 +30,23 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - v1.0 will be released after functionality has been integration tested.
 
 
+## [0.4.2] - 2026-04-26
+
+### Highlights
+
+- Fix changelog formatting to get github release running.
+
+### Fixed
+
+- One of the third level headers was accidentally made a second level header
+  and parsing failed.
+
+### Bugs 
+
+- The gui focus can get stuck in the parameter edit fields preventing use of
+  left and right arrow keys to flip through the frames.
+
+
 ## [0.4.1] - 2026-04-26
 
 ### Highlights
@@ -61,7 +78,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added previously missing functionality:
   - PCA and motion modelling for better tracking.
 
-## Changed
+### Changed
 
 - The C files and headers now live in their own directory for cleaner package
   structure.
