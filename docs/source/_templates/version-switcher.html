@@ -1,0 +1,78 @@
+<div class="version-switcher" style="padding: 1rem 0; border-bottom: 1px solid var(--color-sidebar-brand-text);">
+    <label for="version-select" style="font-weight: bold; font-size: 0.9em; display: block; margin-bottom: 0.5rem;">Documentation Version:</label>
+    <select id="version-select" style="width: 100%; padding: 0.4rem; border-radius: 4px; background-color: var(--color-sidebar-background); color: var(--color-sidebar-text); border: 1px solid var(--color-sidebar-item-background--hover);">
+        <option value="latest">latest</option>
+        </select>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const select = document.getElementById("version-select");
+    const repo = "giuthas-speech-research-tools/super_slurpy"; 
+
+    // Figure out the current version from the URL path
+    const pathParts = window.location.pathname.split('/');
+    const repoIndex = pathParts.indexOf("super_slurpy");
+    
+    let currentVersion = "latest";
+    if (repoIndex !== -1 && pathParts.length > repoIndex + 1) {
+        const potentialVersion = pathParts[repoIndex + 1];
+        if (potentialVersion && !potentialVersion.endsWith('.html')) {
+            currentVersion = potentialVersion;
+        }
+    }
+
+    // Helper function to filter out versions older than 0.5.0
+    function isSupportedVersion(tagName) {
+        // Remove 'v' prefix if it exists and ignore pre-release suffixes for the core check
+        const cleanTag = tagName.replace(/^v/, '');
+        const parts = cleanTag.split('-')[0].split('.').map(Number);
+        
+        const major = parts[0] || 0;
+        const minor = parts[1] || 0;
+        
+        if (major > 0) return true;            // Allows 1.0.0+
+        if (major === 0 && minor >= 5) return true; // Allows 0.5.0+
+        return false;
+    }
+
+    // Fetch tags dynamically from GitHub API
+    fetch(`https://api.github.com/repos/${repo}/tags`)
+        .then(response => response.json())
+        .then(tags => {
+            tags.forEach(tag => {
+                // Apply the filter here!
+                if (isSupportedVersion(tag.name)) {
+                    const option = document.createElement("option");
+                    option.value = tag.name;
+                    option.text = tag.name;
+                    select.appendChild(option);
+                }
+            });
+            
+            // Set the current version as the selected option
+            if (Array.from(select.options).some(opt => opt.value === currentVersion)) {
+                select.value = currentVersion;
+            } else {
+                const fallbackOption = document.createElement("option");
+                fallbackOption.value = currentVersion;
+                fallbackOption.text = currentVersion;
+                select.appendChild(fallbackOption);
+                select.value = currentVersion;
+            }
+        })
+        .catch(err => console.error("Could not load versions from GitHub", err));
+
+    // Handle navigation when a new version is selected
+    select.addEventListener("change", function() {
+        const selectedVersion = this.value;
+        if (selectedVersion !== currentVersion) {
+            const newPathParts = [...pathParts];
+            if (repoIndex !== -1 && newPathParts.length > repoIndex + 1) {
+                newPathParts[repoIndex + 1] = selectedVersion;
+                window.location.href = window.location.origin + newPathParts.join('/');
+            }
+        }
+    });
+});
+</script>

@@ -170,3 +170,31 @@ jobs:
         run: |
           echo ${{env.title_string}}
           gh release create ${{ needs.details.outputs.tag_name }} dist/* --title "${{steps.query-release-info.outputs.version}} - ${{steps.query-release-info.outputs.release-date }}" --notes "${{steps.query-release-info.outputs.release-notes}}" --prerelease
+
+  deploy_versioned_docs:
+    name: Deploy Versioned Docs
+    needs: [details]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install project and dependencies
+        run: uv sync --all-extras
+
+      - name: Build Sphinx Docs
+        working-directory: docs
+        run: make gen-docs
+
+      - name: Deploy to GitHub Pages (version tag)
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs/build/html
+          target-folder: ${{ needs.details.outputs.tag_name }}
+          clean: false
