@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Installation Guide" href="Installation.html">
 
     <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
-        <title>slurpy 0.5.1 documentation</title>
+        <title>slurpy 0.5.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
@@ -162,7 +162,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="#"><div class="brand">slurpy 0.5.1 documentation</div></a>
+      <a href="#"><div class="brand">slurpy 0.5.2 documentation</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -183,13 +183,13 @@
       
       <div class="sidebar-sticky"><div class="sidebar-scroll"><a class="sidebar-brand" href="#">
   
-  <span class="sidebar-brand-text">slurpy 0.5.1 documentation</span>
+  <span class="sidebar-brand-text">slurpy 0.5.2 documentation</span>
   
 </a><div class="version-switcher" style="padding: 1rem 0; border-bottom: 1px solid var(--color-sidebar-brand-text);">
     <label for="version-select" style="font-weight: bold; font-size: 0.9em; display: block; margin-bottom: 0.5rem;">Documentation Version:</label>
-    <select id="version-select" style="width: 100%; padding: 0.4rem; border-radius: 4px; background-color: var(--color-sidebar-background); color: var(--color-sidebar-text); border: 1px solid var(--color-sidebar-item-background--hover);">
-        <option value="latest">latest (development)</option>
-        </select>
+    <select id="version-select" data-release="0.5.2" style="width: 100%; padding: 0.4rem; border-radius: 4px; background-color: var(--color-sidebar-background); color: var(--color-sidebar-text); border: 1px solid var(--color-sidebar-item-background--hover);">
+        <option id="latest-option" value="latest">latest</option>
+    </select>
 </div>
 
 <script>
@@ -202,18 +202,48 @@ document.addEventListener("DOMContentLoaded", function() {
     const repoIndex = pathParts.indexOf("super_slurpy");
     
     let currentVersion = "latest";
-    if (repoIndex !== -1 && pathParts.length > repoIndex + 1) {
-        const potentialVersion = pathParts[repoIndex + 1];
-        if (potentialVersion && !potentialVersion.endsWith('.html')) {
-            currentVersion = potentialVersion;
+    let basePath = "/super_slurpy"; // Fallback
+    
+    if (repoIndex !== -1) {
+        basePath = pathParts.slice(0, repoIndex + 1).join('/');
+        if (pathParts.length > repoIndex + 1) {
+            const potentialVersion = pathParts[repoIndex + 1];
+            if (potentialVersion && !potentialVersion.endsWith('.html')) {
+                currentVersion = potentialVersion;
+            }
         }
     }
+
+    // --- NEW LOGIC: Check the actual deployed 'latest' docs ---
+    const latestOpt = document.getElementById("latest-option");
+    
+    function setLatestLabel(releaseStr) {
+        if (releaseStr) {
+            const isDev = releaseStr.includes('-');
+            latestOpt.text = isDev ? "latest (development)" : "latest (stable)";
+        }
+    }
+
+    if (currentVersion === "latest") {
+        // If we are currently looking at 'latest', the HTML already knows its own version!
+        setLatestLabel(select.getAttribute("data-release"));
+    } else {
+        // If we are on an older version, fetch the 'latest' index page and read its baked-in version
+        fetch(window.location.origin + basePath + "/latest/")
+            .then(response => response.text())
+            .then(html => {
+                // Look for the data-release stamp we injected above
+                const match = html.match(/data-release="([^"]+)"/);
+                if (match) setLatestLabel(match[1]);
+            })
+            .catch(err => console.warn("Could not determine status of latest docs", err));
+    }
+    // ----------------------------------------------------------
 
     // Helper function to filter out versions older than 0.5.0-alpha.8
     function isSupportedVersion(tagName) {
         const cleanTag = tagName.replace(/^v/, '');
         
-        // Split into the core version (0.5.0) and the prerelease part (alpha.7)
         const [coreVersion, ...prereleaseParts] = cleanTag.split('-');
         const prerelease = prereleaseParts.join('-'); 
         
@@ -222,31 +252,20 @@ document.addEventListener("DOMContentLoaded", function() {
         const minor = parts[1] || 0;
         const patch = parts[2] || 0;
         
-        // 1. Any major version > 0 is supported
         if (major > 0) return true;
-        
-        // 2. We are in 0.x.x series
         if (minor > 5) return true;
         if (minor < 5) return false;
-        
-        // 3. We are exactly in 0.5.x series
-        if (patch > 0) return true; // e.g. 0.5.1 passes
-        
-        // 4. We are exactly at 0.5.0
-        // If there is no pre-release tag, it's the stable 0.5.0, which is supported
+        if (patch > 0) return true; 
         if (!prerelease) return true;
         
-        // 5. It's a 0.5.0 pre-release (e.g., alpha.7, beta.1)
         if (prerelease.startsWith('alpha')) {
-            // Extract the number after alpha (e.g., 'alpha.7' -> 7)
             const alphaNumMatch = prerelease.match(/alpha\.?(\d+)/);
             if (alphaNumMatch) {
                 const alphaNum = parseInt(alphaNumMatch[1], 10);
-                if (alphaNum <= 7) return false; // Exclude alpha.7 and before
+                if (alphaNum <= 7) return false; 
             }
         }
         
-        // If it's beta, rc, or an alpha >= 8, it is supported!
         return true;
     }
 
@@ -259,7 +278,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     const option = document.createElement("option");
                     option.value = tag.name;
                     
-                    // Add (stable) or (pre-release) indicator
                     const isPreRelease = tag.name.includes('-');
                     const label = isPreRelease ? " (pre-release)" : " (stable)";
                     
@@ -479,7 +497,7 @@ PyPI and thus for installing.</p>
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=b9afe91b"></script>
+</div><script src="_static/documentation_options.js?v=8e576371"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>
