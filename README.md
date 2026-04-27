@@ -18,9 +18,9 @@ This project is a Python port of [SLURP](https://github.com/cathylaporte/SLURP).
 - General
   [Documentation](https://giuthas-speech-research-tools.github.io/super_slurpy/)
 - For current version and development plans see
-[Changelog](https://giuthas-speech-research-tools.github.io/super_slurpy/Changelog)
+[Changelog](https://giuthas-speech-research-tools.github.io/super_slurpy/latest/Changelog.html)
 - [List of
-  contributors](https://giuthas-speech-research-tools.github.io/super_slurpy/Contributors)
+  contributors](https://giuthas-speech-research-tools.github.io/super_slurpy/latest/Contributors.html)
 
 ### Versioning
 
@@ -30,7 +30,8 @@ understanding that releases before 1.0 (i.e. current releases at time of
 writing) have not been tested in any way.
 
 For the versions available, see the [tags on this
-repository](https://github.com/giuthas-speech-research-tools/super_slurpy/).
+repository](https://github.com/giuthas-speech-research-tools/super_slurpy/) or
+the general documentation above.
 
 ### Copyright and License
 
