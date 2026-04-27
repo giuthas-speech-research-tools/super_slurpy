@@ -19,7 +19,7 @@ permissions:
 
 # Allow only one concurrent deployment
 concurrency:
-  group: "pages"
+  group: "docs-build-${{ github.ref }}"
   cancel-in-progress: false
 
 jobs:
