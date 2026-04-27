@@ -1,7 +1,0 @@
-model
-=====
-
-.. automodule:: super_slurpy.model
-   :members:
-   :show-inheritance:
-   :undoc-members:

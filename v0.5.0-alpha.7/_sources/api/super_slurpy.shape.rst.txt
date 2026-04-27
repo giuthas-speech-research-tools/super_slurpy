@@ -1,7 +1,0 @@
-shape
-=====
-
-.. automodule:: super_slurpy.shape
-   :members:
-   :show-inheritance:
-   :undoc-members:

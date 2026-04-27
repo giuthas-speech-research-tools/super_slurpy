@@ -1,7 +1,0 @@
-cli
-===
-
-.. automodule:: super_slurpy.cli
-   :members:
-   :show-inheritance:
-   :undoc-members:

@@ -1,7 +1,0 @@
-gui
-===
-
-.. automodule:: super_slurpy.gui
-   :members:
-   :show-inheritance:
-   :undoc-members:

@@ -1,3 +1,0 @@
-recursive-include src *.pyx *.pxd *.h *.c
-include super_slurpy/*.csv
-include super_slurpy/*.yaml
