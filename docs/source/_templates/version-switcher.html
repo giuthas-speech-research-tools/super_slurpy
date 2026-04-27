@@ -1,7 +1,7 @@
 <div class="version-switcher" style="padding: 1rem 0; border-bottom: 1px solid var(--color-sidebar-brand-text);">
     <label for="version-select" style="font-weight: bold; font-size: 0.9em; display: block; margin-bottom: 0.5rem;">Documentation Version:</label>
     <select id="version-select" style="width: 100%; padding: 0.4rem; border-radius: 4px; background-color: var(--color-sidebar-background); color: var(--color-sidebar-text); border: 1px solid var(--color-sidebar-item-background--hover);">
-        <option value="latest">latest</option>
+        <option value="latest">latest (development)</option>
         </select>
 </div>
 
@@ -24,15 +24,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Helper function to filter out versions older than 0.5.0
     function isSupportedVersion(tagName) {
-        // Remove 'v' prefix if it exists and ignore pre-release suffixes for the core check
         const cleanTag = tagName.replace(/^v/, '');
         const parts = cleanTag.split('-')[0].split('.').map(Number);
         
         const major = parts[0] || 0;
         const minor = parts[1] || 0;
         
-        if (major > 0) return true;            // Allows 1.0.0+
-        if (major === 0 && minor >= 5) return true; // Allows 0.5.0+
+        if (major > 0) return true;            
+        if (major === 0 && minor >= 5) return true; 
         return false;
     }
 
@@ -41,11 +40,15 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(response => response.json())
         .then(tags => {
             tags.forEach(tag => {
-                // Apply the filter here!
                 if (isSupportedVersion(tag.name)) {
                     const option = document.createElement("option");
                     option.value = tag.name;
-                    option.text = tag.name;
+                    
+                    // Add (stable) or (pre-release) indicator
+                    const isPreRelease = tag.name.includes('-');
+                    const label = isPreRelease ? " (pre-release)" : " (stable)";
+                    
+                    option.text = tag.name + label;
                     select.appendChild(option);
                 }
             });
@@ -56,7 +59,13 @@ document.addEventListener("DOMContentLoaded", function() {
             } else {
                 const fallbackOption = document.createElement("option");
                 fallbackOption.value = currentVersion;
-                fallbackOption.text = currentVersion;
+                
+                // Try to label the fallback option correctly too if it's a tag
+                const isFallbackPreRelease = currentVersion.includes('-');
+                const fallbackLabel = (currentVersion !== "latest") ? 
+                    (isFallbackPreRelease ? " (pre-release)" : " (stable)") : "";
+                
+                fallbackOption.text = currentVersion + fallbackLabel;
                 select.appendChild(fallbackOption);
                 select.value = currentVersion;
             }
