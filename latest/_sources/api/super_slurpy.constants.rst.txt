@@ -1,0 +1,7 @@
+constants
+=========
+
+.. automodule:: super_slurpy.constants
+   :members:
+   :show-inheritance:
+   :undoc-members:

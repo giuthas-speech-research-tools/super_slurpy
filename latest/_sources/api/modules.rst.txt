@@ -1,0 +1,7 @@
+super_slurpy
+============
+
+.. toctree::
+   :maxdepth: 4
+
+   super_slurpy
