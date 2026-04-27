@@ -1,0 +1,7 @@
+motion
+======
+
+.. automodule:: super_slurpy.motion
+   :members:
+   :show-inheritance:
+   :undoc-members:
