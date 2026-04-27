@@ -1,0 +1,7 @@
+core
+====
+
+.. automodule:: super_slurpy.core
+   :members:
+   :show-inheritance:
+   :undoc-members:
