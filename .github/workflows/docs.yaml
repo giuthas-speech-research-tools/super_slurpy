@@ -2,7 +2,7 @@ name: Deploy Docs to GitHub Pages
 
 on:
   push:
-    branches: ["main"] # Update this if your default branch is 'master'
+    branches: ["main"]
     paths:
       - 'docs/**'
       - 'src/**'
@@ -12,13 +12,10 @@ on:
 env:
   PACKAGE_NAME: "super_slurpy"
   OWNER: "Pertti Palo"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# Give the action permission to push to the gh-pages branch
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 # Allow only one concurrent deployment
 concurrency:
@@ -48,6 +45,7 @@ jobs:
       - name: Deploy to GitHub Pages (latest)
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: docs/build/html
-          target-folder: latest
-          clean: false
+          branch: gh-pages             # Explicitly telling it where to push
+          folder: docs/build/html      # The folder we built the HTML into
+          target-folder: latest        # The subfolder on the branch to put it in
+          clean: false                 # Do not delete existing versions!
