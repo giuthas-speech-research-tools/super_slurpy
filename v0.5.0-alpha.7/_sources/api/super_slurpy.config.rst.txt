@@ -1,0 +1,7 @@
+config
+======
+
+.. automodule:: super_slurpy.config
+   :members:
+   :show-inheritance:
+   :undoc-members:
