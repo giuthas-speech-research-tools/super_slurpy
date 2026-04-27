@@ -22,17 +22,45 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    // Helper function to filter out versions older than 0.5.0
+    // Helper function to filter out versions older than 0.5.0-alpha.8
     function isSupportedVersion(tagName) {
         const cleanTag = tagName.replace(/^v/, '');
-        const parts = cleanTag.split('-')[0].split('.').map(Number);
         
+        // Split into the core version (0.5.0) and the prerelease part (alpha.7)
+        const [coreVersion, ...prereleaseParts] = cleanTag.split('-');
+        const prerelease = prereleaseParts.join('-'); 
+        
+        const parts = coreVersion.split('.').map(Number);
         const major = parts[0] || 0;
         const minor = parts[1] || 0;
+        const patch = parts[2] || 0;
         
-        if (major > 0) return true;            
-        if (major === 0 && minor >= 5) return true; 
-        return false;
+        // 1. Any major version > 0 is supported
+        if (major > 0) return true;
+        
+        // 2. We are in 0.x.x series
+        if (minor > 5) return true;
+        if (minor < 5) return false;
+        
+        // 3. We are exactly in 0.5.x series
+        if (patch > 0) return true; // e.g. 0.5.1 passes
+        
+        // 4. We are exactly at 0.5.0
+        // If there is no pre-release tag, it's the stable 0.5.0, which is supported
+        if (!prerelease) return true;
+        
+        // 5. It's a 0.5.0 pre-release (e.g., alpha.7, beta.1)
+        if (prerelease.startsWith('alpha')) {
+            // Extract the number after alpha (e.g., 'alpha.7' -> 7)
+            const alphaNumMatch = prerelease.match(/alpha\.?(\d+)/);
+            if (alphaNumMatch) {
+                const alphaNum = parseInt(alphaNumMatch[1], 10);
+                if (alphaNum <= 7) return false; // Exclude alpha.7 and before
+            }
+        }
+        
+        // If it's beta, rc, or an alpha >= 8, it is supported!
+        return true;
     }
 
     // Fetch tags dynamically from GitHub API
@@ -60,7 +88,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 const fallbackOption = document.createElement("option");
                 fallbackOption.value = currentVersion;
                 
-                // Try to label the fallback option correctly too if it's a tag
                 const isFallbackPreRelease = currentVersion.includes('-');
                 const fallbackLabel = (currentVersion !== "latest") ? 
                     (isFallbackPreRelease ? " (pre-release)" : " (stable)") : "";
