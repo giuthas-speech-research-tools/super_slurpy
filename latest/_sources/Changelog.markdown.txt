@@ -32,6 +32,22 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - v1.0 will be released after functionality has been integration tested.
 
 
+## [0.5.5] - 2026-05-01
+
+### Highlights
+
+- Rearranged the buttons on the GUI to make the window a bit more compact.
+
+### Changed
+
+- Order and placement of buttons on the  top of the window.
+
+### Bugs 
+
+- The gui focus can get stuck in the parameter edit fields preventing use of
+  left and right arrow keys to flip through the frames.
+
+
 ## [0.5.4] - 2026-04-26
 
 ### Highlights
