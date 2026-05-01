@@ -119,11 +119,22 @@ class SlurpyGui(QMainWindow):
         layout = QVBoxLayout(main_widget)
 
         toolbar = QHBoxLayout()
+        toolbar2 = QHBoxLayout()
 
         self.btn_open = QPushButton(
             text="Open Video (Ctrl+O)", parent=main_widget
         )
         self.btn_open.clicked.connect(slot=self.open_video)
+
+        self.btn_save = QPushButton(
+            text="Save CSV (Ctrl+S)", parent=main_widget
+        )
+        self.btn_save.clicked.connect(slot=self.save_results_to_csv)
+
+        self.btn_load = QPushButton(
+            text="Load CSV (Ctrl+L)", parent=main_widget
+        )
+        self.btn_load.clicked.connect(slot=self.load_results_from_csv)
 
         self.btn_track_snake = QPushButton(
             text="Snake track (Ctrl+T)", parent=main_widget
@@ -153,24 +164,15 @@ class SlurpyGui(QMainWindow):
         self.btn_track_curr_particle.setEnabled(False)
         self.btn_track_curr_particle.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
-        self.btn_save = QPushButton(
-            text="Save CSV (Ctrl+S)", parent=main_widget
-        )
-        self.btn_save.clicked.connect(slot=self.save_results_to_csv)
-
-        self.btn_load = QPushButton(
-            text="Load CSV (Ctrl+L)", parent=main_widget
-        )
-        self.btn_load.clicked.connect(slot=self.load_results_from_csv)
-
         toolbar.addWidget(self.btn_open)
-        toolbar.addWidget(self.btn_track_snake)
-        toolbar.addWidget(self.btn_track_curr_snake)
-        toolbar.addWidget(self.btn_track_particle)
-        toolbar.addWidget(self.btn_track_curr_particle)
         toolbar.addWidget(self.btn_save)
         toolbar.addWidget(self.btn_load)
+        toolbar2.addWidget(self.btn_track_snake)
+        toolbar2.addWidget(self.btn_track_curr_snake)
+        toolbar2.addWidget(self.btn_track_particle)
+        toolbar2.addWidget(self.btn_track_curr_particle)
         layout.addLayout(toolbar)
+        layout.addLayout(toolbar2)
 
         # What: Create the timeline slider.
         # Why: Allows the user to scrub through the video frames.
